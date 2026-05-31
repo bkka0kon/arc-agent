@@ -1,0 +1,16 @@
+{
+  "name": "arc-agentic-orchestrator",
+  "version": "0.1.0",
+  "description": "Buyer-side orchestrator for Arc Agentic — runs bundles, calls paid services via x402 on Arc",
+  "type": "module",
+  "scripts": {
+    "start": "node orchestrator.js",
+    "pulse": "node orchestrator.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.6.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

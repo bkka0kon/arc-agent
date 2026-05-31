@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Arc Agentic — Sell a service</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="./styles.css" />
+<script src="./theme.js"></script>
+<style>
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .step { background: var(--bg-card); border: 1px solid var(--line); border-radius: 14px; padding: 22px; position: relative; overflow: hidden; }
+  .step::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--gold); opacity: 0.6; }
+  .step .num { font-family: var(--mono); font-size: 11px; color: var(--gold); letter-spacing: 0.16em; text-transform: uppercase; }
+  .step h3 { font-size: 18px; font-weight: 600; margin-top: 8px; }
+  .step p { color: var(--ink-muted); font-size: 13.5px; margin-top: 10px; }
+  .ci { font-family: var(--mono); font-size: 12px; color: var(--gold); background: var(--gold-soft); padding: 1px 7px; border-radius: 5px; }
+  .econ { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .ecard { background: var(--bg-card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
+  .ecard .l { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.08em; }
+  .ecard .v { font-family: var(--mono); font-size: 24px; font-weight: 700; color: var(--gold); margin-top: 6px; }
+  .ecard .s { font-size: 12px; color: var(--ink-faint); margin-top: 8px; }
+  .note { font-size: 13px; color: var(--ink-muted); background: var(--bg-soft); border: 1px dashed var(--line); border-radius: 12px; padding: 14px 18px; margin-top: 14px; }
+  .note b { color: var(--ink); }
+  .checklist { background: var(--bg-card); border: 1px solid var(--line); border-radius: 14px; }
+  .checklist ol { list-style: none; counter-reset: c; }
+  .checklist li { counter-increment: c; display: flex; align-items: center; gap: 14px; padding: 14px 20px; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .checklist li:last-child { border-bottom: none; }
+  .checklist li::before { content: counter(c, decimal-leading-zero); flex-shrink: 0; font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--gold); border: 1px solid var(--line-strong); border-radius: 8px; width: 34px; height: 26px; display: grid; place-items: center; }
+  .checklist .ref { margin-left: auto; flex-shrink: 0; font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); background: var(--bg-soft); padding: 4px 9px; border-radius: 6px; border: 1px solid var(--line); }
+  .checklist code, .step code { font-family: var(--mono); font-size: 12px; color: var(--gold); }
+  .copy-btn { float: right; margin-bottom: -26px; position: relative; z-index: 2; font-family: var(--mono); font-size: 11px; color: var(--gold); background: var(--gold-soft); border: 1px solid var(--gold-line); border-radius: 6px; padding: 3px 9px; cursor: pointer; }
+  .copy-btn:hover { background: var(--gold); color: #1a1206; }
+  .rev-tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .rev-tbl thead th { text-align: left; font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.07em; padding: 12px 18px; background: var(--bg-soft); border-bottom: 1px solid var(--line); }
+  .rev-tbl td { padding: 14px 18px; border-top: 1px solid var(--line); }
+  .rev-tbl .amt { font-family: var(--mono); color: var(--gold); text-align: right; }
+  .rev-tbl .cnt { font-family: var(--mono); text-align: right; }
+  .rev-tbl tfoot td { font-family: var(--mono); font-weight: 700; color: var(--green); background: var(--bg-soft); border-top: 1px solid var(--line); }
+  .rev-tbl tfoot td.amt { color: var(--gold); }
+  @media (max-width: 820px) { .steps, .econ { grid-template-columns: 1fr; } .checklist li { flex-wrap: wrap; } .checklist .ref { margin-left: 48px; } }
+</style>
+</head>
+<body>
+
+  <nav class="nav">
+    <a class="brand" href="./index.html">
+      <svg class="mark" width="34" height="34" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Arc Agentic">
+        <path d="M 7 30 A 16 16 0 0 1 30 7" stroke="var(--gold)" stroke-width="3.6" stroke-linecap="round" fill="none"/>
+        <circle cx="30" cy="7" r="3.3" fill="var(--gold)"/>
+        <circle cx="20" cy="20" r="1.5" fill="var(--gold)" opacity="0.55"/>
+      </svg>
+      <span class="name">Arc Agentic<small>AGENT MARKETPLACE · ARC</small></span>
+    </a>
+    <div class="nav-right">
+      <div class="nav-links">
+        <a href="./index.html#catalog">Catalog</a>
+        <a href="./for-agents.html">For AI agents</a>
+        <a class="active" href="./seller.html">Sell a service</a>
+      </div>
+      <span class="badge-net">● Arc Testnet</span>
+      <button class="theme-toggle" data-theme-toggle aria-label="Toggle theme">
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </button>
+    </div>
+  </nav>
+
+  <div class="wrap">
+    <section class="hero">
+      <span class="eyebrow">For sellers · Circle Gateway + x402</span>
+      <h1 class="hero-title">Turn your API into a <span class="gold">storefront for agents</span>.</h1>
+      <p class="hero-sub">Wrap any HTTP endpoint with one guard, set a price in USDC, and AI agents can discover, pay and consume your service — settled on Arc with sub-cent gas. No API keys, no manual onboarding.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:28px">
+        <a class="btn primary" href="#how">Get started →</a>
+        <a class="btn ghost" href="https://github.com/bkka0kon/arc-agentic" target="_blank" rel="noreferrer">View on GitHub ↗</a>
+      </div>
+    </section>
+
+    <section class="section" id="how">
+      <div class="section-head"><h2>How it works</h2><span class="count">3 steps</span></div>
+      <div class="steps">
+        <div class="step"><div class="num">Step 01</div><h3>Wrap your endpoint</h3><p>Put a tiny <span class="ci">requirePayment()</span> guard in front of any Express route. It returns <span class="ci">402</span> with a signed quote until the agent attaches a valid payment header.</p></div>
+        <div class="step"><div class="num">Step 02</div><h3>Set a price</h3><p>Specify a per-call price in USDC — typically <span class="ci">$0.0005</span>–<span class="ci">$0.05</span>. The guard verifies + settles through Circle Gateway before your handler runs.</p></div>
+        <div class="step"><div class="num">Step 03</div><h3>List + get paid</h3><p>Add a row to <span class="ci">web/data.js</span>. Agents browsing that category route traffic to you. Revenue accrues to your Gateway balance; withdraw anytime.</p></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head"><h2>Minimal seller server</h2><span class="count">seller-api/server.js</span></div>
+      <div class="code-label">Express — gate any route with one guard</div>
+      <button class="copy-btn" id="cp1">Copy</button>
+      <pre class="code" id="snippet1">// seller-api/server.js — speaks Circle Gateway's x402 REST API directly.
+import express from "express";
+import "dotenv/config";
+
+const SELLER  = process.env.SELLER_WALLET_ADDRESS;   // public 0x… revenue wallet
+const GATEWAY = "https://gateway-api-testnet.circle.com";
+const USDC    = "0x3600000000000000000000000000000000000000"; // USDC on Arc
+
+// 402 until a valid PAYMENT-SIGNATURE is verified + settled via Gateway.
+function requirePayment(price, description) {
+  return async (req, res, next) => {
+    const sig = req.get("PAYMENT-SIGNATURE");
+    if (!sig) return res.status(402).json(quote(req, price, description));
+    const ok = await verifyAndSettle(sig);  // POST /v1/x402/verify + /settle
+    if (!ok.success) return res.status(402).json({ error: ok.reason });
+    req.payment = ok; next();
+  };
+}
+
+const app = express();
+app.get("/v1/price/:token", requirePayment("0.001", "Token price on Arc"), (req, res) => {
+  res.json(getTokenPrice(req.params.token)); // ← your real data source
+});
+app.listen(3000);</pre>
+      <p style="font-size:12px;color:var(--ink-faint);margin-top:10px;line-height:1.6">Full source incl. verify/settle helpers: <span style="font-family:var(--mono);color:var(--gold)">seller-api/server.js</span>. When Circle publishes the <span style="font-family:var(--mono);color:var(--gold)">@x402/core</span> + <span style="font-family:var(--mono);color:var(--gold)">@x402/evm</span> peers, swap the two REST helpers for the <span style="font-family:var(--mono);color:var(--gold)">@circle-fin/x402-batching</span> SDK — no route changes.</p>
+
+      <div class="code-label">Agent calling your endpoint (buyer side)</div>
+      <button class="copy-btn" id="cp2">Copy</button>
+      <pre class="code" id="snippet2"># 1. Unpaid request → 402 Payment Required
+curl -i https://your-seller.onrender.com/v1/price/ETH
+
+# 2. Pay via Circle CLI (Agent Wallet must have Gateway balance funded)
+circle services pay https://your-seller.onrender.com/v1/price/ETH \
+  --address "$AGENT_WALLET_ADDRESS" --chain ARC-TESTNET \
+  --max-amount 0.001 --output json
+
+# 3. Your Gateway balance ticks up by 0.001 USDC.
+circle gateway balance --address "$SELLER_WALLET_ADDRESS" --chain ARC-TESTNET</pre>
+    </section>
+
+    <section class="section">
+      <div class="section-head"><h2>Pricing &amp; economics</h2><span class="count">you set the price</span></div>
+      <div class="econ">
+        <div class="ecard"><div class="l">Typical price range</div><div class="v">$0.0005–$0.05</div><div class="s">Per call. Below $0.0005 the agent-side gas math stops working.</div></div>
+        <div class="ecard"><div class="l">Settlement fee</div><div class="v" style="color:var(--green)">~0 gas</div><div class="s">Circle Gateway batches nanopayments; per-call settlement is sub-cent on Arc.</div></div>
+        <div class="ecard"><div class="l">Platform fee</div><div class="v">0%</div><div class="s">Arc Agentic charges nothing on top — you receive the full price you set.</div></div>
+      </div>
+      <div class="note"><b>Worked example.</b> A Token Price endpoint at $0.001/call inside the Token Pulse bundle. At <b>1,000 agent calls/day</b> you earn <b>$1.00/day = $30/month</b> from one endpoint. List 5 endpoints and the math compounds with no extra ops.</div>
+    </section>
+
+    <section class="section">
+      <div class="section-head"><h2>Revenue (illustrative)</h2><span class="count">mockup</span></div>
+      <div class="list" style="padding:0">
+        <table class="rev-tbl">
+          <thead><tr><th>Endpoint</th><th>Price / call</th><th style="text-align:right">Calls (30d)</th><th style="text-align:right">Revenue</th></tr></thead>
+          <tbody>
+            <tr><td>Token Price <span style="color:var(--ink-faint);font-family:var(--mono);font-size:11px">· data.arc-agentic.dev</span></td><td><span style="font-family:var(--mono);color:var(--gold)">$0.001</span></td><td class="cnt">28,420</td><td class="amt">$28.42</td></tr>
+            <tr><td>DEX Liquidity</td><td><span style="font-family:var(--mono);color:var(--gold)">$0.001</span></td><td class="cnt">14,103</td><td class="amt">$14.10</td></tr>
+            <tr><td>Token Holdings</td><td><span style="font-family:var(--mono);color:var(--gold)">$0.001</span></td><td class="cnt">9,842</td><td class="amt">$9.84</td></tr>
+            <tr><td>Risk Score</td><td><span style="font-family:var(--mono);color:var(--gold)">$0.003</span></td><td class="cnt">2,510</td><td class="amt">$7.53</td></tr>
+            <tr><td>Crypto Sentiment</td><td><span style="font-family:var(--mono);color:var(--gold)">$0.002</span></td><td class="cnt">1,895</td><td class="amt">$3.79</td></tr>
+          </tbody>
+          <tfoot><tr><td>Total (5 endpoints, 30 days)</td><td></td><td class="cnt" style="color:var(--ink)">56,770</td><td class="amt">$63.68</td></tr></tfoot>
+        </table>
+      </div>
+      <p style="font-family:var(--mono);font-size:11px;color:var(--ink-faint);margin-top:12px">↑ Numbers illustrative until live agent traffic flows on Arc Testnet.</p>
+    </section>
+
+    <section class="section">
+      <div class="section-head"><h2>Setup checklist</h2><span class="count">6 steps</span></div>
+      <div class="checklist">
+        <ol>
+          <li>Install Circle CLI &amp; sign in: <code>circle wallet login</code><span class="ref">SETUP.md §2</span></li>
+          <li>Create 3 wallets: Agent · Seller · Payout<span class="ref">SETUP.md §3</span></li>
+          <li>Fund Agent Wallet with testnet USDC + <code>circle gateway deposit</code><span class="ref">SETUP.md §4</span></li>
+          <li><code>cd seller-api</code> · <code>npm install</code> · set <code>SELLER_WALLET_ADDRESS</code> in <code>.env</code><span class="ref">README.md</span></li>
+          <li><code>npm start</code> · test 402 with <code>curl</code> + <code>circle services pay</code><span class="ref">SETUP.md §5</span></li>
+          <li>Withdraw revenue: <code>circle gateway withdraw</code><span class="ref">SETUP.md §6</span></li>
+        </ol>
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:24px">
+        <a class="btn primary" href="https://github.com/bkka0kon/arc-agentic/blob/main/docs/SETUP.md" target="_blank" rel="noreferrer">Open full SETUP.md ↗</a>
+        <a class="btn ghost" href="./index.html">Back to catalog ←</a>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div class="footer-grid">
+        <div>
+          <a class="brand" href="./index.html" style="margin-bottom:14px">
+            <svg class="mark" width="30" height="30" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M 7 30 A 16 16 0 0 1 30 7" stroke="var(--gold)" stroke-width="3.6" stroke-linecap="round" fill="none"/>
+              <circle cx="30" cy="7" r="3.3" fill="var(--gold)"/>
+            </svg>
+            <span class="name">Arc Agentic</span>
+          </a>
+          <p class="blurb">Built for agents and humans. An x402 marketplace running on Arc — Circle's stablecoin Layer 1, with USDC as the gas token.</p>
+        </div>
+        <div class="meta"><div>docs.arc.network</div><div>x402 · Linux Foundation</div><div>USDC · Circle</div></div>
+      </div>
+      <p class="disclaimer">Sample project for educational and development purposes on Arc Testnet. x402 is a Linux Foundation project. Arc and USDC are provided by Circle; Arc has not been reviewed or approved by NYDFS. Informational only — not financial or legal advice.</p>
+    </footer>
+  </div>
+
+  <script>
+    function copy(btnId, elId) {
+      var btn = document.getElementById(btnId);
+      btn.addEventListener('click', function () {
+        navigator.clipboard.writeText(document.getElementById(elId).innerText).then(function () {
+          var t = btn.textContent; btn.textContent = 'Copied ✓'; setTimeout(function () { btn.textContent = t; }, 1500);
+        });
+      });
+    }
+    copy('cp1', 'snippet1'); copy('cp2', 'snippet2');
+  </script>
+</body>
+</html>

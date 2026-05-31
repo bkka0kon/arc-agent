@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Arc Agentic — For AI Agents</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="./styles.css" />
+<link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui.css" />
+<script src="./theme.js"></script>
+<style>
+  .quick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 14px; }
+  .quick a { background: var(--bg-card); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; transition: border-color 0.18s, transform 0.12s; }
+  .quick a:hover { border-color: var(--gold-line); transform: translateY(-2px); }
+  .quick .l { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.08em; }
+  .quick .v { font-size: 16px; font-weight: 600; color: var(--ink); margin-top: 6px; }
+  .quick .s { font-size: 13px; color: var(--ink-muted); margin-top: 4px; }
+  .copy-btn { float: right; margin-bottom: -26px; position: relative; z-index: 2; font-family: var(--mono); font-size: 11px; color: var(--gold); background: var(--gold-soft); border: 1px solid var(--gold-line); border-radius: 6px; padding: 3px 9px; cursor: pointer; }
+  .copy-btn:hover { background: var(--gold); color: #1a1206; }
+  .swagger-wrap { background: var(--bg-card); border: 1px solid var(--line); border-radius: 14px; margin-top: 16px; padding: 16px; }
+  /* Swagger dark/light adaptation via theme vars */
+  #swagger-ui { font-family: var(--sans); }
+  #swagger-ui .info, #swagger-ui .topbar, #swagger-ui .scheme-container { display: none; }
+  #swagger-ui, #swagger-ui .opblock-tag, #swagger-ui .opblock .opblock-summary-path,
+  #swagger-ui table thead tr th, #swagger-ui .response-col_status, #swagger-ui .col_header,
+  #swagger-ui label, #swagger-ui .parameter__name, #swagger-ui .parameter__type,
+  #swagger-ui .opblock-section-header h4, #swagger-ui .tab li { color: var(--ink) !important; }
+  #swagger-ui .opblock-summary-description, #swagger-ui .opblock-description-wrapper p,
+  #swagger-ui .opblock-tag small, #swagger-ui .markdown p, #swagger-ui .renderedMarkdown p { color: var(--ink-muted) !important; }
+  #swagger-ui .opblock-tag { border-bottom: 1px solid var(--line); }
+  #swagger-ui .opblock { background: var(--bg-soft); border: 1px solid var(--line) !important; box-shadow: none; margin-bottom: 8px; }
+  #swagger-ui .opblock.opblock-get { border-color: color-mix(in srgb, var(--green) 35%, transparent) !important; }
+  #swagger-ui .opblock.opblock-post { border-color: var(--gold-line) !important; }
+  #swagger-ui .opblock.opblock-get .opblock-summary-method { background: var(--green); }
+  #swagger-ui .opblock.opblock-post .opblock-summary-method { background: var(--gold); }
+  #swagger-ui select, #swagger-ui input[type=text], #swagger-ui textarea { background: var(--bg); color: var(--ink); border: 1px solid var(--line); }
+  @media (max-width: 820px) { .quick { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+  <nav class="nav">
+    <a class="brand" href="./index.html">
+      <svg class="mark" width="34" height="34" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Arc Agentic">
+        <path d="M 7 30 A 16 16 0 0 1 30 7" stroke="var(--gold)" stroke-width="3.6" stroke-linecap="round" fill="none"/>
+        <circle cx="30" cy="7" r="3.3" fill="var(--gold)"/>
+        <circle cx="20" cy="20" r="1.5" fill="var(--gold)" opacity="0.55"/>
+      </svg>
+      <span class="name">Arc Agentic<small>AGENT MARKETPLACE · ARC</small></span>
+    </a>
+    <div class="nav-right">
+      <div class="nav-links">
+        <a href="./index.html#catalog">Catalog</a>
+        <a class="active" href="./for-agents.html">For AI agents</a>
+        <a href="./seller.html">Sell a service</a>
+      </div>
+      <span class="badge-net">● Arc Testnet</span>
+      <button class="theme-toggle" data-theme-toggle aria-label="Toggle theme">
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </button>
+    </div>
+  </nav>
+
+  <div class="wrap">
+    <section class="hero">
+      <span class="eyebrow">For AI agents · OpenAPI 3.1 · x402</span>
+      <h1 class="hero-title">Drop-in <span class="gold">integration guide</span> for autonomous agents.</h1>
+      <p class="hero-sub">Every endpoint speaks plain JSON over HTTP, gated by HTTP 402. Sign a payment header with your Agent Wallet, retry, receive data. No API keys to provision; pricing is attached to the response.</p>
+
+      <div class="quick">
+        <a href="./openapi.yaml" download><div class="l">OpenAPI spec</div><div class="v">openapi.yaml ↓</div><div class="s">All 27 endpoints, schemas, payment flows.</div></a>
+        <a href="https://github.com/bkka0kon/arc-agentic/blob/main/docs/SETUP.md" target="_blank" rel="noreferrer"><div class="l">Setup guide</div><div class="v">docs/SETUP.md ↗</div><div class="s">Wallets · faucet · Gateway · withdraw.</div></a>
+        <a href="https://github.com/bkka0kon/arc-agentic/tree/main/agent" target="_blank" rel="noreferrer"><div class="l">Reference agent</div><div class="v">orchestrator.js ↗</div><div class="s">7 bundles, runnable in demo mode.</div></a>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head"><h2>Drop-in agent prompts</h2><span class="count">paste into any agent</span></div>
+
+      <div class="code-label">Long prompt · token analysis end-to-end</div>
+      <button class="copy-btn" data-copy="p-long">Copy</button>
+      <pre class="code" id="p-long">You are an autonomous research agent on Arc Network.
+Use Arc Agentic to gather data and reason.
+
+Task: Run the "Token Pulse" bundle for token: ${TOKEN}.
+
+Process:
+  1. GET  https://data.arc-agentic.dev/v1/price/${TOKEN}
+  2. GET  https://data.arc-agentic.dev/v1/liquidity/${TOKEN}-USDC
+  3. POST https://data.arc-agentic.dev/v1/sentiment   { token: "${TOKEN}" }
+  4. If |change24h| > 5%:
+     - POST https://news.arc-agentic.dev/v1/macro     { token: "${TOKEN}" }
+     - GET  https://data.arc-agentic.dev/v1/flow/${TOKEN}
+  5. Each call returns HTTP 402 first — sign with your Agent Wallet
+     (max $0.005 per call) and retry.
+  6. Return JSON: summary, price, liquidity, sentiment, optional news + flow.</pre>
+
+      <div class="code-label">Short prompt · contract explainer</div>
+      <button class="copy-btn" data-copy="p-short">Copy</button>
+      <pre class="code" id="p-short">Use Arc Agentic's contract-explain bundle on Arc Testnet.
+Address: ${CONTRACT_ADDRESS}
+Steps: source → explain → cross-check audit. Max $0.02 total.
+Return structured JSON: summary, entry_points, ownership, audit_status, risks.</pre>
+
+      <div class="code-label">x402 payment exchange (HTTP level)</div>
+      <button class="copy-btn" data-copy="p-http">Copy</button>
+      <pre class="code" id="p-http"># 1. Unpaid request → 402 Payment Required
+GET /v1/price/ETH HTTP/1.1
+Host: data.arc-agentic.dev
+
+HTTP/1.1 402 Payment Required
+PAYMENT-REQUIRED: {
+  "accepts": [{
+    "scheme": "exact", "price": "$0.001",
+    "network": "arc-testnet",
+    "payTo": "0xSellerWalletAddress",
+    "asset": "0x3600000000000000000000000000000000000000",
+    "maxTimeoutSeconds": 300
+  }],
+  "resource": "https://data.arc-agentic.dev/v1/price/ETH"
+}
+
+# 2. Sign with Agent Wallet, retry with PAYMENT-SIGNATURE header
+GET /v1/price/ETH HTTP/1.1
+PAYMENT-SIGNATURE: {signed-payload}
+
+HTTP/1.1 200 OK
+{ "token": "ETH", "price": 3120.45, "change24h": 2.3, ... }</pre>
+    </section>
+
+    <section class="section">
+      <div class="section-head"><h2>OpenAPI spec — live preview</h2><span class="count">../openapi.yaml</span></div>
+      <div class="swagger-wrap"><div id="swagger-ui"></div></div>
+    </section>
+
+    <footer class="footer">
+      <div class="footer-grid">
+        <div>
+          <a class="brand" href="./index.html" style="margin-bottom:14px">
+            <svg class="mark" width="30" height="30" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M 7 30 A 16 16 0 0 1 30 7" stroke="var(--gold)" stroke-width="3.6" stroke-linecap="round" fill="none"/>
+              <circle cx="30" cy="7" r="3.3" fill="var(--gold)"/>
+            </svg>
+            <span class="name">Arc Agentic</span>
+          </a>
+          <p class="blurb">Built for agents and humans. An x402 marketplace running on Arc — Circle's stablecoin Layer 1, with USDC as the gas token.</p>
+        </div>
+        <div class="meta"><div>docs.arc.network</div><div>x402 · Linux Foundation</div><div>USDC · Circle</div></div>
+      </div>
+      <p class="disclaimer">Sample project for educational and development purposes on Arc Testnet. x402 is a Linux Foundation project. Arc and USDC are provided by Circle; Arc has not been reviewed or approved by NYDFS. Informational only — not financial or legal advice.</p>
+    </footer>
+  </div>
+
+  <script src="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui-bundle.js"></script>
+  <script>
+    window.addEventListener('DOMContentLoaded', function () {
+      try {
+        window.ui = SwaggerUIBundle({
+          url: './openapi.yaml',
+          dom_id: '#swagger-ui',
+          docExpansion: 'list',
+          defaultModelsExpandDepth: -1,
+          tryItOutEnabled: true,
+        });
+      } catch (e) {
+        document.getElementById('swagger-ui').innerHTML =
+          '<p style="color:var(--ink-muted);font-family:var(--mono);font-size:13px;padding:20px">Swagger UI failed to load. Spec still at <a href="./openapi.yaml" style="color:var(--gold)">openapi.yaml</a>.</p>';
+      }
+    });
+    document.querySelectorAll('.copy-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var el = document.getElementById(btn.getAttribute('data-copy'));
+        if (!el) return;
+        navigator.clipboard.writeText(el.innerText).then(function () {
+          var t = btn.textContent; btn.textContent = 'Copied ✓'; setTimeout(function () { btn.textContent = t; }, 1500);
+        });
+      });
+    });
+  </script>
+</body>
+</html>

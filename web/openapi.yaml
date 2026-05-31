@@ -1,0 +1,510 @@
+openapi: 3.1.0
+info:
+  title: Arc Agentic API
+  version: "0.1.0"
+  description: |
+    Catalog of paid services on Arc Agentic — a stablecoin-native
+    agent marketplace running on **Arc** (Circle's stablecoin Layer 1)
+    via **x402** + **Circle Gateway**.
+
+    ## Payment model
+    Every endpoint is gated by HTTP 402. The first request returns a
+    `402 Payment Required` with a `PAYMENT-REQUIRED` header describing
+    the price and accepted networks. The agent signs a payment header
+    (`PAYMENT-SIGNATURE`) and retries — the seller's middleware verifies
+    against Circle Gateway and only then runs the handler.
+
+    All prices are in **USDC** on **Arc Testnet** (CAIP-2 id `eip155:5042002`).
+    Sub-cent amounts are settled in batched nanopayments — per-call gas
+    is effectively zero.
+
+    ## For AI agents
+    Drop the URL pattern of any endpoint into your prompt; the schema
+    here mirrors what each endpoint returns. Combine multiple endpoints
+    using the bundle recipes in `web/data.js` → `BUNDLES`.
+
+    Reference orchestrator: `agent/orchestrator.js` (runs any bundle id).
+
+  contact:
+    name: Arc Agentic
+    url: https://github.com/anhdopc/liftup-agents
+  license:
+    name: MIT
+
+servers:
+  - url: https://{subdomain}.arc-agentic.dev
+    description: Per-service domains on Arc Testnet
+    variables:
+      subdomain:
+        default: data
+        enum: [search, infer, data, chain, risk, fin, news, defi]
+
+tags:
+  - name: Search
+    description: Discovery — find tokens / protocols / contracts.
+  - name: Inference
+    description: LLM completion, reasoning, contract explanation.
+  - name: Data
+    description: Price feeds, TVL, wallet history, sentiment.
+
+# ════════════════════════════════════════════════════════════════
+#  PAYMENT RESPONSES (referenced by every endpoint)
+# ════════════════════════════════════════════════════════════════
+components:
+  responses:
+    PaymentRequired:
+      description: |
+        Payment required. Sign the `accepts` payload with your Agent Wallet
+        and retry with `PAYMENT-SIGNATURE` header.
+      headers:
+        PAYMENT-REQUIRED:
+          schema:
+            type: string
+          description: JSON-encoded payment requirement (see schema).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/PaymentRequiredBody"
+    Success:
+      description: Payment verified, handler ran, data returned.
+      content:
+        application/json:
+          schema:
+            type: object
+            description: Endpoint-specific shape. See each path for details.
+            additionalProperties: true
+
+  schemas:
+    PaymentRequiredBody:
+      type: object
+      required: [accepts, resource]
+      properties:
+        accepts:
+          type: array
+          items:
+            type: object
+            required: [scheme, price, network, payTo]
+            properties:
+              scheme:      { type: string, enum: [exact, permit2], example: "exact" }
+              price:       { type: string, example: "$0.001" }
+              network:     { type: string, example: "eip155:5042002" }
+              payTo:       { type: string, example: "0xSellerWalletAddress" }
+              description: { type: string }
+              mimeType:    { type: string, example: "application/json" }
+              expiresIn:   { type: integer, description: "Seconds until quote expires.", example: 300 }
+        resource:
+          type: string
+          example: "https://data.arc-agentic.dev/v1/price/ETH"
+
+  parameters:
+    Token:
+      name: token
+      in: path
+      required: true
+      schema: { type: string }
+      example: ETH
+    Pair:
+      name: pair
+      in: path
+      required: true
+      schema: { type: string }
+      example: ETH-USDC
+    Address:
+      name: address
+      in: path
+      required: true
+      schema: { type: string, pattern: "^0x[a-fA-F0-9]{40}$" }
+      example: "0x1234567890abcdef1234567890abcdef12345678"
+    Symbol:
+      name: symbol
+      in: path
+      required: true
+      schema: { type: string }
+      example: AAPL
+    Protocol:
+      name: protocol
+      in: path
+      required: true
+      schema: { type: string }
+      example: aave-v3
+
+  securitySchemes:
+    x402:
+      type: http
+      scheme: bearer
+      bearerFormat: PAYMENT-SIGNATURE
+      description: |
+        x402 payment header. The first request to any path returns 402.
+        Sign the `accepts` quote with your Agent Wallet, attach the
+        signed payload as `PAYMENT-SIGNATURE`, and retry.
+
+security:
+  - x402: []
+
+# ════════════════════════════════════════════════════════════════
+#  PATHS
+# ════════════════════════════════════════════════════════════════
+paths:
+
+  # ─────────── SEARCH ───────────
+  /v1/token/find:
+    get:
+      tags: [Search]
+      summary: Find a token by symbol, name or partial address.
+      description: Price $0.001. Returns the canonical record across registries.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+  /v1/dex/listings:
+    get:
+      tags: [Search]
+      summary: DEX listings for a token (pair addresses, primary venue).
+      description: Price $0.001.
+      parameters: [{ name: q, in: query, required: true, schema: { type: string } }]
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+  /v1/onchain/find:
+    post:
+      tags: [Search]
+      summary: Find addresses, swaps, contract deployments matching a pattern.
+      description: Price $0.002.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, properties: { query: { type: string } } }
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+  /v1/protocol/find:
+    get:
+      tags: [Search]
+      summary: Search DeFi protocols by chain, category, or TVL band.
+      description: Price $0.001.
+      parameters: [{ name: q, in: query, required: true, schema: { type: string } }]
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+  /v1/audit/{protocol}:
+    get:
+      tags: [Search]
+      summary: Audit reports + contract risk flags for a protocol.
+      description: Price $0.002.
+      parameters: [{ $ref: "#/components/parameters/Protocol" }]
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+  /v1/web/search:
+    post:
+      tags: [Search]
+      summary: Web search wrapper (Exa-style) optimized for fresh crypto / finance content.
+      description: Price $0.003.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, properties: { query: { type: string }, freshness_days: { type: integer, default: 7 } } }
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+
+  # ─────────── INFERENCE ───────────
+  /v1/llm/complete:
+    post:
+      tags: [Inference]
+      summary: Generic LLM completion (Claude / GPT / Grok routed per pricing).
+      description: Price $0.005 per request (excluding token surcharge).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prompt]
+              properties:
+                prompt:      { type: string }
+                max_tokens:  { type: integer, default: 512 }
+                model_hint:  { type: string, example: "fast" }
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+  /v1/llm/reason:
+    post:
+      tags: [Inference]
+      summary: Higher-quality reasoning model for multi-step tasks.
+      description: Price $0.01 per request.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [task]
+              properties:
+                task:    { type: string }
+                context: { type: object, additionalProperties: true }
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+  /v1/contract/source:
+    get:
+      tags: [Inference]
+      summary: Verified contract source code for an address.
+      description: Price $0.0005. ArcScan-backed.
+      parameters:
+        - name: address
+          in: query
+          required: true
+          schema: { type: string, pattern: "^0x[a-fA-F0-9]{40}$" }
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+  /v1/contract/explain:
+    post:
+      tags: [Inference]
+      summary: Plain-English explanation of what a contract does + entry points.
+      description: Price $0.012. Wrap Source → LLM → structured summary.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [source]
+              properties:
+                source: { type: object, additionalProperties: true }
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+  /v1/audit/summarize:
+    post:
+      tags: [Inference]
+      summary: Summarize a long audit report into bullets + severity buckets.
+      description: Price $0.008.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, properties: { report_url: { type: string }, raw_text: { type: string } } }
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+  /v1/defi/qa:
+    post:
+      tags: [Inference]
+      summary: Chat with a DeFi-specialized model (TVL / APY / risk vocabulary).
+      description: Price $0.004 per turn.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question]
+              properties:
+                question: { type: string }
+                history:  { type: array, items: { type: object } }
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+
+  # ─────────── DATA ───────────
+  /v1/price/{token}:
+    get:
+      tags: [Data]
+      summary: Real-time price for any token by symbol or address.
+      description: Price $0.001.
+      parameters: [{ $ref: "#/components/parameters/Token" }]
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+  /v1/liquidity/{pair}:
+    get:
+      tags: [Data]
+      summary: Liquidity depth and estimated slippage across DEXs.
+      description: Price $0.001.
+      parameters: [{ $ref: "#/components/parameters/Pair" }]
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+  /v1/sentiment:
+    post:
+      tags: [Data]
+      summary: Bull/bear sentiment score from social + news.
+      description: Price $0.002.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, properties: { token: { type: string } } }
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+  /v1/flow/{token}:
+    get:
+      tags: [Data]
+      summary: Whale and exchange in/out flows for a token.
+      description: Price $0.002.
+      parameters: [{ $ref: "#/components/parameters/Token" }]
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+  /v1/balance/{address}:
+    get:
+      tags: [Data]
+      summary: Native + USDC balances for an Arc address.
+      description: Price $0.0005.
+      parameters: [{ $ref: "#/components/parameters/Address" }]
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+  /v1/txs/{address}:
+    get:
+      tags: [Data]
+      summary: Recent transaction history for a wallet.
+      description: Price $0.001.
+      parameters: [{ $ref: "#/components/parameters/Address" }]
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+  /v1/holdings/{address}:
+    get:
+      tags: [Data]
+      summary: Token portfolio with USD valuations.
+      description: Price $0.001.
+      parameters: [{ $ref: "#/components/parameters/Address" }]
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+  /v1/risk-score:
+    post:
+      tags: [Data]
+      summary: Wallet risk score based on interactions with flagged addresses.
+      description: Price $0.003.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [address]
+              properties: { address: { type: string } }
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+  /v1/quote/{symbol}:
+    get:
+      tags: [Data]
+      summary: Stock quote — price, market cap, volume.
+      description: Price $0.001.
+      parameters: [{ $ref: "#/components/parameters/Symbol" }]
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+  /v1/index/{name}:
+    get:
+      tags: [Data]
+      summary: Current snapshot of a market index (S&P 500, Nasdaq…).
+      description: Price $0.001.
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema: { type: string }
+          example: SP500
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+  /v1/analyst/{symbol}:
+    get:
+      tags: [Data]
+      summary: Consensus analyst recommendations for a symbol.
+      description: Price $0.001.
+      parameters: [{ $ref: "#/components/parameters/Symbol" }]
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+  /v1/macro:
+    post:
+      tags: [Data]
+      summary: Latest macro news items affecting the market.
+      description: Price $0.002.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, properties: { token: { type: string }, region: { type: string } } }
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+  /v1/market:
+    post:
+      tags: [Data]
+      summary: Token / project-specific news from crypto + finance sources.
+      description: Price $0.002.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, properties: { token: { type: string } } }
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+  /v1/pools:
+    get:
+      tags: [Data]
+      summary: Yield pools with APY across protocols.
+      description: Price $0.002.
+      parameters:
+        - { name: token, in: query, schema: { type: string }, required: false }
+        - { name: min_tvl_usd, in: query, schema: { type: integer }, required: false }
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+  /v1/tvl/{protocol}:
+    get:
+      tags: [Data]
+      summary: Total value locked for a protocol over time.
+      description: Price $0.001.
+      parameters: [{ $ref: "#/components/parameters/Protocol" }]
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+  /v1/gas/{tx}:
+    get:
+      tags: [Data]
+      summary: Estimated gas (USDC) for a tx on Arc.
+      description: Price $0.0005.
+      parameters:
+        - name: tx
+          in: path
+          required: true
+          schema: { type: string }
+          example: "raw_or_typed_op"
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+  /v1/il/estimate:
+    post:
+      tags: [Data]
+      summary: Estimate impermanent loss exposure for an LP position.
+      description: Price $0.001.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pool]
+              properties:
+                pool:    { type: string }
+                amount:  { type: number }
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }

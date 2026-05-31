@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Arc Agentic — Bundle detail</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="./styles.css" />
+<script src="./theme.js"></script>
+<style>
+  /* page-specific bits not in shared CSS */
+  .back { display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono);
+    font-size: 12px; color: var(--ink-muted); margin: 28px 0 0; transition: color 0.15s; }
+  .back:hover { color: var(--gold); }
+  .cat-badge { display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono);
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; padding: 5px 11px;
+    border-radius: 100px; margin-bottom: 18px; color: var(--gold); background: var(--gold-soft);
+    border: 1px solid var(--gold-line); }
+  .cat-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .b-title { font-size: clamp(32px, 4.5vw, 48px); font-weight: 700; line-height: 1.05; letter-spacing: -0.03em; }
+  .b-tag { font-size: 17px; color: var(--ink-muted); max-width: 700px; margin-top: 14px; }
+  .timeline { background: var(--bg-card); border: 1px solid var(--line); border-radius: 14px; padding: 8px 24px; }
+  .timeline ol { list-style: none; counter-reset: step; }
+  .timeline li { counter-increment: step; position: relative; padding: 14px 0 14px 52px;
+    border-bottom: 1px solid var(--line); font-size: 14px; line-height: 1.55; }
+  .timeline li:last-child { border-bottom: none; }
+  .timeline li::before { content: counter(step, decimal-leading-zero); position: absolute;
+    left: 0; top: 14px; width: 36px; height: 26px; border-right: 1px solid var(--line);
+    font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--gold);
+    display: grid; place-items: center; padding-right: 14px; }
+  .cost-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .cost-card { background: var(--bg-card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
+  .cost-l { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.08em; }
+  .cost-v { font-family: var(--mono); font-size: 24px; font-weight: 700; color: var(--gold); margin-top: 6px; }
+  .cost-s { font-size: 12px; color: var(--ink-faint); margin-top: 8px; }
+  .copy-btn { float: right; margin-bottom: -26px; position: relative; z-index: 2; font-family: var(--mono);
+    font-size: 11px; color: var(--gold); background: var(--gold-soft); border: 1px solid var(--gold-line);
+    border-radius: 6px; padding: 3px 9px; cursor: pointer; }
+  .copy-btn:hover { background: var(--gold); color: #1a1206; }
+  .notfound { padding: 80px 0; text-align: center; }
+  .notfound h1 { font-size: 38px; font-weight: 700; }
+  .notfound p { color: var(--ink-muted); margin-top: 14px; }
+  @media (max-width: 820px) { .cost-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+  <nav class="nav">
+    <a class="brand" href="./index.html">
+      <svg class="mark" width="34" height="34" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Arc Agentic">
+        <path d="M 7 30 A 16 16 0 0 1 30 7" stroke="var(--gold)" stroke-width="3.6" stroke-linecap="round" fill="none"/>
+        <circle cx="30" cy="7" r="3.3" fill="var(--gold)"/>
+        <circle cx="20" cy="20" r="1.5" fill="var(--gold)" opacity="0.55"/>
+      </svg>
+      <span class="name">Arc Agentic<small>AGENT MARKETPLACE · ARC</small></span>
+    </a>
+    <div class="nav-right">
+      <div class="nav-links">
+        <a href="./index.html#catalog">Catalog</a>
+        <a href="./for-agents.html">For AI agents</a>
+        <a href="./seller.html">Sell a service</a>
+      </div>
+      <span class="badge-net">● Arc Testnet</span>
+      <button class="theme-toggle" data-theme-toggle aria-label="Toggle theme">
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </button>
+    </div>
+  </nav>
+
+  <div id="root" class="wrap"></div>
+
+  <script type="module">
+    import { BUNDLES, ENDPOINTS, CATEGORIES } from './data.js';
+
+    const id = new URLSearchParams(location.search).get('id');
+    const bundle = BUNDLES.find(b => b.id === id);
+    const root = document.getElementById('root');
+    const catLabel = { search: 'Search', inference: 'Inference', data: 'Data' };
+
+    const footer = `
+      <footer class="footer">
+        <div class="footer-grid">
+          <div>
+            <a class="brand" href="./index.html" style="margin-bottom:14px">
+              <svg class="mark" width="30" height="30" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M 7 30 A 16 16 0 0 1 30 7" stroke="var(--gold)" stroke-width="3.6" stroke-linecap="round" fill="none"/>
+                <circle cx="30" cy="7" r="3.3" fill="var(--gold)"/>
+              </svg>
+              <span class="name">Arc Agentic</span>
+            </a>
+            <p class="blurb">Built for agents and humans. An x402 marketplace running on Arc — Circle's stablecoin Layer 1, with USDC as the gas token.</p>
+          </div>
+          <div class="meta"><div>docs.arc.network</div><div>x402 · Linux Foundation</div><div>USDC · Circle</div></div>
+        </div>
+        <p class="disclaimer">Sample project for educational and development purposes on Arc Testnet. x402 is a Linux Foundation project. Arc and USDC are provided by Circle; Arc has not been reviewed or approved by NYDFS. Informational only — not financial or legal advice.</p>
+      </footer>`;
+
+    if (!bundle) {
+      root.innerHTML = `<div class="notfound"><h1>Bundle not found</h1><p>No bundle with id <code>${id ?? '(missing)'}</code>.</p><a class="btn primary" style="margin-top:24px" href="./index.html">← Back to catalog</a></div>` + footer;
+    } else {
+      const services = bundle.services.map(name => ({ name, ep: ENDPOINTS.find(e => e.service === name) }));
+      const parseUsd = s => parseFloat((s || '$0').replace(/[$,]/g, '')) || 0;
+      const total = services.reduce((s, x) => s + (x.ep ? parseUsd(x.ep.price) : 0), 0);
+      const fmt = n => n < 0.01 ? `$${n.toFixed(4)}` : `$${n.toFixed(3)}`;
+      const first = services.find(s => s.ep)?.ep;
+      const cliPay = first ? `circle services pay https://${first.domain}${first.path} \\
+  --address "$AGENT_WALLET_ADDRESS" --chain ARC-TESTNET \\
+  --max-amount ${parseUsd(first.price).toFixed(4)} --output json` : 'circle services pay …';
+
+      root.innerHTML = `
+        <a class="back" href="./index.html">← Back to catalog</a>
+        <section class="hero" style="padding-top:20px">
+          <div class="cat-badge"><span class="dot"></span>${catLabel[bundle.category] || bundle.category}</div>
+          <h1 class="b-title">${bundle.name}</h1>
+          <p class="b-tag">${bundle.tagline}</p>
+          <div class="statbar">
+            <div class="stat"><div class="l">Price / run</div><div class="v gold">${bundle.price}</div></div>
+            <div class="stat"><div class="l">Services</div><div class="v">${services.length}</div></div>
+            <div class="stat"><div class="l">Reliability</div><div class="v green">${bundle.successRate}</div></div>
+            <div class="stat"><div class="l">Settlement</div><div class="v">Arc · USDC</div></div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-head"><h2>Services included</h2><span class="count">${services.length} endpoints</span></div>
+          <div class="list">
+            <div class="list-head"><div>#</div><div>Service</div><div>Endpoint</div><div>Category</div><div style="text-align:right">Price</div></div>
+            ${services.map(({ name, ep }, i) => ep ? `
+              <div class="row">
+                <div class="rank">${String(i + 1).padStart(2, '0')}</div>
+                <div class="svc"><div class="logo-chip">${ep.icon}</div><div class="meta"><div class="nm">${ep.service}</div><div class="dm">${ep.domain}</div></div></div>
+                <div class="ep"><span class="method ${ep.method.toLowerCase()}">${ep.method}</span><span class="ep-path">${ep.path}</span></div>
+                <div><span class="badge cat-${ep.category}">${catLabel[ep.category]}</span></div>
+                <div class="price">${ep.price}</div>
+              </div>` : `
+              <div class="row">
+                <div class="rank">${String(i + 1).padStart(2, '0')}</div>
+                <div class="svc"><div class="logo-chip" style="border-style:dashed;color:var(--ink-faint)">?</div><div class="meta"><div class="nm">${name}</div><div class="dm">— not yet listed —</div></div></div>
+                <div class="ep-desc" style="grid-column:span 3">Coming soon — referenced service not yet published as an endpoint.</div>
+              </div>`).join('')}
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-head"><h2>Workflow</h2><span class="count">${bundle.workflow.length} steps</span></div>
+          <div class="timeline"><ol>${bundle.workflow.map(s => `<li>${s}</li>`).join('')}</ol></div>
+        </section>
+
+        <section class="section">
+          <div class="section-head"><h2>Run this bundle</h2><span class="count">x402 + Circle Gateway</span></div>
+          <div class="code-label">CLI · pay one endpoint</div>
+          <button class="copy-btn" id="cp1">Copy</button>
+          <pre class="code" id="snippet1">${cliPay.replace(/</g, '&lt;')}</pre>
+          <div class="code-label">Agent prompt · drop into Claude / GPT / Grok</div>
+          <button class="copy-btn" id="cp2">Copy</button>
+          <pre class="code" id="snippet2">Use Arc Agentic's ${bundle.name} bundle on Arc Testnet.
+
+Steps:
+${bundle.workflow.map((s, i) => `${i + 1}. ${s}`).join('\n')}
+
+Pay each endpoint via x402 (max $${(parseUsd(bundle.price.split('–').pop()) * 1.2).toFixed(3)}/call).
+Return: structured JSON of the aggregated result with sources cited.</pre>
+        </section>
+
+        <section class="section">
+          <div class="section-head"><h2>Cost breakdown</h2><span class="count">per single run</span></div>
+          <div class="cost-grid">
+            <div class="cost-card"><div class="cost-l">Min cost</div><div class="cost-v">${fmt(total)}</div><div class="cost-s">Sum of endpoint base prices.</div></div>
+            <div class="cost-card"><div class="cost-l">Max cost</div><div class="cost-v">${fmt(total * 1.5)}</div><div class="cost-s">+50% buffer for retries / fallback.</div></div>
+            <div class="cost-card"><div class="cost-l">List price</div><div class="cost-v">${bundle.price}</div><div class="cost-s">Range shown on catalog card.</div></div>
+          </div>
+        </section>
+        ${footer}`;
+
+      document.title = `${bundle.name} · Arc Agentic`;
+      const copy = (btnId, elId) => {
+        const btn = document.getElementById(btnId);
+        btn?.addEventListener('click', () => {
+          navigator.clipboard.writeText(document.getElementById(elId).innerText).then(() => {
+            const t = btn.textContent; btn.textContent = 'Copied ✓'; setTimeout(() => btn.textContent = t, 1500);
+          });
+        });
+      };
+      copy('cp1', 'snippet1'); copy('cp2', 'snippet2');
+    }
+  </script>
+</body>
+</html>

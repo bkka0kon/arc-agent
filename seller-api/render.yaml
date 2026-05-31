@@ -1,0 +1,21 @@
+# Render Blueprint for the Arc Agentic seller API.
+# Dashboard → New → Blueprint → pick this repo. Render reads this file.
+#
+# After first deploy, set the secret env var in the Render dashboard:
+#   SELLER_WALLET_ADDRESS = your Seller Wallet 0x… (public address)
+services:
+  - type: web
+    name: arc-agentic-seller
+    runtime: node
+    rootDir: seller-api
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: SELLER_WALLET_ADDRESS
+        sync: false          # set manually in dashboard (never commit it)
+      - key: PORT
+        value: 3000
+      - key: NODE_VERSION
+        value: 20
