@@ -28,11 +28,26 @@ export const MARKET_STATS = {
 // seller-api currently serves GET /v1/price/:token — once it's
 // deployed to a public host, uncomment its path below.
 export const LIVE_PATHS = new Set([
-  // "/v1/price/:token",   // ← uncomment when seller-api is live (L2)
+  "/v1/price/:token",      // Vercel Function · CoinGecko · $0.001
+  "/v1/pools",             // Vercel Function · DeFiLlama yields · $0.002
+  "/v1/tvl/:protocol",     // Vercel Function · DeFiLlama · $0.001
+  "/v1/balance/:address",  // Vercel Function · Arc Testnet RPC · $0.0005
 ]);
+
+// Host serving the live endpoints. Live endpoints are reachable at:
+//   https://{LIVE_HOST}/api{endpoint.path}
+// where ":token", ":protocol", ":address" are filled by the agent.
+export const LIVE_HOST = "arc-agent-seven.vercel.app";
 
 export function isLive(endpoint) {
   return LIVE_PATHS.has(endpoint.path);
+}
+
+/** Concrete URL for a live endpoint, given an example arg. */
+export function liveUrl(endpoint, exampleArg = "ETH") {
+  if (!isLive(endpoint)) return null;
+  const path = endpoint.path.replace(/:[a-zA-Z]+/g, encodeURIComponent(exampleArg));
+  return `https://${LIVE_HOST}/api${path}`;
 }
 
 // Top-level taxonomy. Each carries the visual treatment + tagline
@@ -195,11 +210,11 @@ export const ENDPOINTS = [
   { category: "inference", icon: "❍", service: "DeFi Q&A",          domain: "infer.arc-agentic.dev",  method: "POST", path: "/v1/defi/qa",            desc: "Chat with a DeFi-specialized model (TVL/APY/risk vocabulary).",           price: "$0.004" },
 
   // ─────────── DATA ───────────
-  { category: "data", icon: "₮", service: "Token Price",       domain: "data.arc-agentic.dev",   method: "GET",  path: "/v1/price/:token",        desc: "Real-time price for any token by symbol or address.",                  price: "$0.001"  },
+  { category: "data", icon: "₮", service: "Token Price",       domain: "arc-agent-seven.vercel.app/api", method: "GET", path: "/v1/price/:token",      desc: "Real-time price for any token by symbol or address. CoinGecko-backed.", price: "$0.001"  },
   { category: "data", icon: "≈", service: "DEX Liquidity",     domain: "data.arc-agentic.dev",   method: "GET",  path: "/v1/liquidity/:pair",     desc: "Liquidity depth and estimated slippage across DEXs.",                  price: "$0.001"  },
   { category: "data", icon: "☷", service: "Crypto Sentiment",  domain: "data.arc-agentic.dev",   method: "POST", path: "/v1/sentiment",           desc: "Bull/bear sentiment score from social + news.",                        price: "$0.002"  },
   { category: "data", icon: "◉", service: "On-chain Flow",     domain: "data.arc-agentic.dev",   method: "GET",  path: "/v1/flow/:token",         desc: "Whale and exchange in/out flows for a given token.",                   price: "$0.002"  },
-  { category: "data", icon: "⊞", service: "Balance Lookup",    domain: "chain.arc-agentic.dev",  method: "GET",  path: "/v1/balance/:address",    desc: "Native + USDC balances for an Arc address.",                           price: "$0.0005" },
+  { category: "data", icon: "⊞", service: "Balance Lookup",    domain: "arc-agent-seven.vercel.app/api", method: "GET", path: "/v1/balance/:address",  desc: "Native (USDC gas) + USDC ERC-20 balances for an Arc address. Arc RPC direct.", price: "$0.0005" },
   { category: "data", icon: "⊟", service: "Tx History",        domain: "chain.arc-agentic.dev",  method: "GET",  path: "/v1/txs/:address",        desc: "Recent transaction history for a wallet.",                             price: "$0.001"  },
   { category: "data", icon: "⊠", service: "Token Holdings",    domain: "chain.arc-agentic.dev",  method: "GET",  path: "/v1/holdings/:address",   desc: "Token portfolio held by a wallet, with USD valuations.",               price: "$0.001"  },
   { category: "data", icon: "⚠", service: "Risk Score",        domain: "risk.arc-agentic.dev",   method: "POST", path: "/v1/risk-score",          desc: "Wallet risk score based on interactions with flagged addresses.",      price: "$0.003"  },
@@ -208,8 +223,8 @@ export const ENDPOINTS = [
   { category: "data", icon: "✎", service: "Analyst Recs",      domain: "fin.arc-agentic.dev",    method: "GET",  path: "/v1/analyst/:symbol",     desc: "Consensus analyst recommendations for a symbol.",                      price: "$0.001"  },
   { category: "data", icon: "◷", service: "Macro News",        domain: "news.arc-agentic.dev",   method: "POST", path: "/v1/macro",               desc: "Latest macro news items affecting the market.",                        price: "$0.002"  },
   { category: "data", icon: "▦", service: "Market News",       domain: "news.arc-agentic.dev",   method: "POST", path: "/v1/market",              desc: "Token / project-specific news from crypto + finance sources.",         price: "$0.002"  },
-  { category: "data", icon: "%", service: "Yield Pools",       domain: "defi.arc-agentic.dev",   method: "GET",  path: "/v1/pools",               desc: "List of yield pools with APY across protocols.",                       price: "$0.002"  },
-  { category: "data", icon: "Σ", service: "TVL Tracker",       domain: "defi.arc-agentic.dev",   method: "GET",  path: "/v1/tvl/:protocol",       desc: "Total value locked for a protocol over time.",                         price: "$0.001"  },
+  { category: "data", icon: "%", service: "Yield Pools",       domain: "arc-agent-seven.vercel.app/api", method: "GET", path: "/v1/pools",             desc: "Yield pools across DeFi protocols (APY, TVL). DeFiLlama-backed. Filter by ?token + ?min_tvl_usd.", price: "$0.002"  },
+  { category: "data", icon: "Σ", service: "TVL Tracker",       domain: "arc-agent-seven.vercel.app/api", method: "GET", path: "/v1/tvl/:protocol",     desc: "Total value locked for a protocol (slug, e.g. aave-v3). DeFiLlama-backed.", price: "$0.001"  },
   { category: "data", icon: "⛽", service: "Gas Estimate",      domain: "data.arc-agentic.dev",   method: "GET",  path: "/v1/gas/:tx",             desc: "Estimated gas (USDC) for a tx on Arc — supports raw tx + common ops.", price: "$0.0005" },
   { category: "data", icon: "≷", service: "Impermanent Loss",  domain: "defi.arc-agentic.dev",   method: "POST", path: "/v1/il/estimate",         desc: "Estimate impermanent loss exposure for a given LP position.",          price: "$0.001"  },
 ];
