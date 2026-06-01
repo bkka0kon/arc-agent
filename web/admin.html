@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Arc Agentic · Admin Stats</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="./styles.css" />
+<script src="./theme.js"></script>
+<style>
+  .admin-kpi {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+    margin-top: 32px;
+  }
+  .admin-kpi .kpi {
+    border: 1px solid var(--line); border-radius: 12px;
+    padding: 20px; background: var(--bg-card);
+  }
+  .admin-kpi .kpi .l {
+    font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .admin-kpi .kpi .v {
+    font-family: var(--mono); font-size: 26px; font-weight: 700;
+    margin-top: 8px; color: var(--ink);
+  }
+  .admin-kpi .kpi .v.gold { color: var(--gold); }
+  .admin-kpi .kpi .v.green { color: var(--green); }
+  .admin-kpi .kpi .sub {
+    font-size: 11px; color: var(--ink-faint); margin-top: 4px;
+  }
+  .payer-list {
+    margin-top: 30px; border: 1px solid var(--line); border-radius: 12px;
+    background: var(--bg-card); overflow: hidden;
+  }
+  .payer-list .head {
+    display: grid; grid-template-columns: 40px 1fr auto auto;
+    gap: 16px; padding: 14px 20px;
+    border-bottom: 1px solid var(--line);
+    font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .payer-list .row {
+    display: grid; grid-template-columns: 40px 1fr auto auto;
+    gap: 16px; padding: 14px 20px;
+    border-bottom: 1px solid var(--line);
+    align-items: center;
+  }
+  .payer-list .row:last-child { border-bottom: none; }
+  .payer-list .row .rank { font-family: var(--mono); color: var(--ink-faint); }
+  .payer-list .row .addr {
+    font-family: var(--mono); font-size: 13px;
+    color: var(--ink); word-break: break-all;
+  }
+  .payer-list .row .paid { font-family: var(--mono); color: var(--gold); font-weight: 700; }
+  .payer-list .row .cnt { font-family: var(--mono); color: var(--ink-muted); font-size: 12px; }
+  .meta-line {
+    margin-top: 24px; font-family: var(--mono); font-size: 11px;
+    color: var(--ink-faint); display: flex; justify-content: space-between;
+  }
+  .meta-line a { color: var(--gold); text-decoration: none; }
+  .meta-line a:hover { text-decoration: underline; }
+  @media (max-width: 820px) {
+    .admin-kpi { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+  <nav class="nav">
+    <a class="brand" href="./index.html">
+      <svg class="mark" width="34" height="34" viewBox="0 0 40 40" fill="none">
+        <path d="M 7 30 A 16 16 0 0 1 30 7" stroke="var(--gold)" stroke-width="3.6" stroke-linecap="round" fill="none"/>
+        <circle cx="30" cy="7" r="3.3" fill="var(--gold)"/>
+        <circle cx="20" cy="20" r="1.5" fill="var(--gold)" opacity="0.55"/>
+      </svg>
+      <span class="name">Arc Agentic<small>ADMIN · MARKETPLACE STATS</small></span>
+    </a>
+    <div class="nav-right">
+      <div class="nav-links">
+        <a href="./index.html">Catalog</a>
+        <a href="./for-agents.html">For agents</a>
+        <a href="./seller.html">Sell a service</a>
+      </div>
+      <button class="theme-toggle" data-theme-toggle aria-label="Toggle theme">
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </button>
+    </div>
+  </nav>
+
+  <div class="wrap">
+    <section class="hero" style="padding-bottom: 16px;">
+      <span class="eyebrow">Operator view · public</span>
+      <h1 class="hero-title">Marketplace stats <span class="gold">live</span> from chain.</h1>
+      <p class="hero-sub">Revenue and payer leaderboard derived from the seller wallet's on-chain history. No private database, no API key — anyone can verify these numbers themselves at <a href="https://testnet.arcscan.app" target="_blank" rel="noreferrer noopener" style="color:var(--gold)">testnet.arcscan.app</a>.</p>
+    </section>
+
+    <div class="admin-kpi" id="kpi">
+      <div class="kpi"><div class="l">Total revenue</div><div class="v gold" id="k-rev">—</div><div class="sub">USDC, gateway-settled</div></div>
+      <div class="kpi"><div class="l">Settlements</div><div class="v" id="k-sett">—</div><div class="sub">inbound USDC transfers</div></div>
+      <div class="kpi"><div class="l">Unique payers</div><div class="v" id="k-pay">—</div><div class="sub">distinct sender wallets</div></div>
+      <div class="kpi"><div class="l">Live endpoints</div><div class="v green" id="k-ep">—</div><div class="sub">currently 402-gated</div></div>
+    </div>
+
+    <div class="payer-list">
+      <div class="head"><div>#</div><div>Wallet</div><div>Paid</div><div>Settlements</div></div>
+      <div id="payers"><div class="row"><div class="rank">—</div><div class="addr">Loading…</div><div class="paid">—</div><div class="cnt">—</div></div></div>
+    </div>
+
+    <div class="meta-line">
+      <span id="meta-last">Last settlement: —</span>
+      <span><a href="https://arc-agent-seven.vercel.app/api/v1/admin/stats" target="_blank" rel="noreferrer noopener">raw JSON ↗</a></span>
+    </div>
+
+    <footer class="footer">
+      <div class="footer-grid">
+        <div>
+          <a class="brand" href="./index.html" style="margin-bottom:14px">
+            <svg class="mark" width="30" height="30" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+              <path d="M 7 30 A 16 16 0 0 1 30 7" stroke="var(--gold)" stroke-width="3.6" stroke-linecap="round" fill="none"/>
+              <circle cx="30" cy="7" r="3.3" fill="var(--gold)"/>
+              <circle cx="20" cy="20" r="1.5" fill="var(--gold)" opacity="0.55"/>
+            </svg>
+            <span class="name">Arc Agentic</span>
+          </a>
+          <p class="blurb">All numbers shown here are derived live from the seller wallet's USDC transfer log on Arc Testnet. Refresh to re-scan.</p>
+        </div>
+        <div class="meta">
+          <div>Cached 60 s at the edge</div>
+          <div>Scan window: ~17 h of chain history</div>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    const HOST = window.location.origin.includes('vercel.app') ? '' : 'https://arc-agent-seven.vercel.app';
+
+    function fmtUsdc(n) {
+      if (n === null || n === undefined || Number.isNaN(n)) return '—';
+      return '$' + Number(n).toFixed(n < 1 ? 6 : 2);
+    }
+    function shortAddr(a) {
+      return a.slice(0, 6) + '…' + a.slice(-4);
+    }
+    function fmtTime(iso) {
+      if (!iso) return 'no settlements yet';
+      const d = new Date(iso);
+      const delta = Math.max(0, (Date.now() - d.getTime()) / 1000);
+      if (delta < 60) return `${Math.round(delta)}s ago`;
+      if (delta < 3600) return `${Math.round(delta / 60)}m ago`;
+      if (delta < 86400) return `${Math.round(delta / 3600)}h ago`;
+      return d.toLocaleString();
+    }
+
+    async function load() {
+      try {
+        const r = await fetch(`${HOST}/api/v1/admin/stats`, { cache: 'no-store' });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const j = await r.json();
+
+        document.getElementById('k-rev').textContent = fmtUsdc(j.revenue_usdc);
+        document.getElementById('k-sett').textContent = j.settlement_count ?? '—';
+        document.getElementById('k-pay').textContent = j.unique_payers ?? '—';
+        document.getElementById('k-ep').textContent = j.live_endpoints ?? '—';
+
+        const payersHtml = (j.top_payers || []).length === 0
+          ? `<div class="row"><div class="rank">—</div><div class="addr">No settlements yet. Run the demo: <code style="font-family:var(--mono);color:var(--gold)">PAY=1 node agent/demo-pay-flow.js</code></div><div class="paid">—</div><div class="cnt">—</div></div>`
+          : j.top_payers.map((p, i) => `
+              <div class="row">
+                <div class="rank">${String(i + 1).padStart(2, '0')}</div>
+                <div class="addr">${p.address}</div>
+                <div class="paid">${fmtUsdc(p.paid_usdc)}</div>
+                <div class="cnt">${p.settlement_count}</div>
+              </div>
+            `).join('');
+        document.getElementById('payers').innerHTML = payersHtml;
+        document.getElementById('meta-last').textContent = `Last settlement: ${fmtTime(j.last_settlement)}`;
+      } catch (e) {
+        document.getElementById('k-rev').textContent = 'err';
+        document.getElementById('payers').innerHTML = `<div class="row"><div class="rank">!</div><div class="addr">Failed to load: ${e.message}</div><div class="paid">—</div><div class="cnt">—</div></div>`;
+      }
+    }
+    load();
+    setInterval(load, 60_000);
+  </script>
+</body>
+</html>
