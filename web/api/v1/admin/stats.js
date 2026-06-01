@@ -28,9 +28,13 @@ const USDC_ARC = "0x3600000000000000000000000000000000000000";
 const USDC_DECIMALS = 6;
 const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 
-// Cap event-log scan window so a long-lived testnet doesn't blow up
-// the call. 100k blocks at ~0.6 s/block ≈ 17 hours of history.
-const SCAN_BLOCKS = 100_000n;
+// Arc RPC rejects single eth_getLogs over wide ranges (HTTP 413).
+// Scan in CHUNK_BLOCKS-sized chunks, MAX_CHUNKS chunks total.
+// Default: 10 × 10k = 100k blocks ≈ 17 h of history at ~0.6 s/block.
+// Per-chunk failures are tolerated (we report what succeeded) so a
+// single bad chunk doesn't blank the whole dashboard.
+const CHUNK_BLOCKS = 10_000n;
+const MAX_CHUNKS = 10;
 
 async function rpc(method, params) {
   const r = await fetch(ARC_RPC, {
@@ -73,31 +77,49 @@ export default async function handler(req) {
     const revenueRaw = hexToBigInt(balRaw);
     const revenueUsdc = Number(revenueRaw) / 10 ** USDC_DECIMALS;
 
-    // 2. Latest block + scan window for Transfer events.
+    // 2. Chunked Transfer-event scan, tolerating per-chunk failures.
     const latestHex = await rpc("eth_blockNumber", []);
     const latest = hexToBigInt(latestHex);
-    const fromBlock = latest > SCAN_BLOCKS ? latest - SCAN_BLOCKS : 0n;
+    const sellerTopic = padTopic(seller);
 
-    const logs = await rpc("eth_getLogs", [{
-      address: USDC_ARC,
-      fromBlock: "0x" + fromBlock.toString(16),
-      toBlock: "0x" + latest.toString(16),
-      topics: [TRANSFER_TOPIC, null, padTopic(seller)],
-    }]);
-
-    // 3. Aggregate.
     const senderTotals = new Map(); // sender → { count, paidRaw }
     let lastBlock = 0n;
-    for (const log of logs) {
-      const from = "0x" + log.topics[1].slice(26);
-      const amt = hexToBigInt(log.data);
-      const cur = senderTotals.get(from) || { count: 0, paidRaw: 0n };
-      cur.count++;
-      cur.paidRaw += amt;
-      senderTotals.set(from, cur);
-      const bn = hexToBigInt(log.blockNumber);
-      if (bn > lastBlock) lastBlock = bn;
+    let chunksAttempted = 0;
+    let chunksFailed = 0;
+    let totalLogs = 0;
+    let oldestSuccessfulBlock = latest;
+
+    for (let i = 0; i < MAX_CHUNKS; i++) {
+      const toBlock = latest - BigInt(i) * CHUNK_BLOCKS;
+      if (toBlock <= 0n) break;
+      const fromBlock = toBlock > CHUNK_BLOCKS ? toBlock - CHUNK_BLOCKS + 1n : 0n;
+      chunksAttempted++;
+      try {
+        const logs = await rpc("eth_getLogs", [{
+          address: USDC_ARC,
+          fromBlock: "0x" + fromBlock.toString(16),
+          toBlock: "0x" + toBlock.toString(16),
+          topics: [TRANSFER_TOPIC, null, sellerTopic],
+        }]);
+        for (const log of logs) {
+          const from = "0x" + log.topics[1].slice(26);
+          const amt = hexToBigInt(log.data);
+          const cur = senderTotals.get(from) || { count: 0, paidRaw: 0n };
+          cur.count++;
+          cur.paidRaw += amt;
+          senderTotals.set(from, cur);
+          const bn = hexToBigInt(log.blockNumber);
+          if (bn > lastBlock) lastBlock = bn;
+        }
+        totalLogs += logs.length;
+        if (fromBlock < oldestSuccessfulBlock) oldestSuccessfulBlock = fromBlock;
+      } catch (err) {
+        chunksFailed++;
+        // Keep scanning — a single bad chunk shouldn't blank the dashboard.
+      }
     }
+    const scanComplete = chunksFailed === 0;
+    const scannedBlocks = latest > oldestSuccessfulBlock ? latest - oldestSuccessfulBlock : 0n;
 
     // 4. Approximate "last settlement" timestamp.
     let lastSettlementIso = null;
@@ -123,14 +145,22 @@ export default async function handler(req) {
       network: "eip155:5042002",
       revenue_usdc: revenueUsdc,
       revenue_usdc_formatted: revenueUsdc.toFixed(6),
-      settlement_count: logs.length,
+      settlement_count: totalLogs,
       unique_payers: senderTotals.size,
       last_settlement: lastSettlementIso,
-      scan_window_blocks: Number(SCAN_BLOCKS),
+      scan: {
+        chunks_attempted: chunksAttempted,
+        chunks_failed: chunksFailed,
+        scan_complete: scanComplete,
+        scanned_blocks: Number(scannedBlocks),
+        chunk_size_blocks: Number(CHUNK_BLOCKS),
+      },
       live_endpoints: LIVE_ENDPOINT_COUNT,
       top_payers: topPayers,
       ts: new Date().toISOString(),
-      note: "Cached 60 s. Stats over the last ~17 h of Arc Testnet history (scan_window_blocks).",
+      note: scanComplete
+        ? "Cached 60 s. Stats over the most recent ~17 h of Arc Testnet history."
+        : `Cached 60 s. ${chunksFailed}/${chunksAttempted} chunks failed (Arc RPC rate limit) — figures reflect successfully-scanned chunks only.`,
     }, 200);
   } catch (err) {
     return jsonResponse({ error: "rpc_failed", message: err.message }, 502);
