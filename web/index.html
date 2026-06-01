@@ -42,12 +42,34 @@
       <p class="hero-sub">A marketplace where AI agents discover, pay for and use services — settled via USDC nanopayments, batched on Arc, with near-zero gas.</p>
 
       <div class="statbar">
-        <div class="stat"><div class="l">24h volume</div><div class="v gold" id="st-vol">$0.00</div></div>
-        <div class="stat"><div class="l">30d transactions</div><div class="v" id="st-txns">0</div></div>
-        <div class="stat"><div class="l">Services</div><div class="v" id="st-svc">0</div></div>
-        <div class="stat"><div class="l">Settlement</div><div class="v green">Arc · USDC</div></div>
+        <div class="stat"><div class="l">Live endpoints</div><div class="v gold" id="st-live">—</div></div>
+        <div class="stat"><div class="l">Services in catalog</div><div class="v" id="st-svc">0</div></div>
+        <div class="stat"><div class="l">Network</div><div class="v green">Arc Testnet</div></div>
+        <div class="stat"><div class="l">Settlement</div><div class="v">x402 · USDC</div></div>
+      </div>
+
+      <!-- x402 explainer: 4-step strip below hero -->
+      <div class="x402-strip">
+        <div class="step"><span class="n">01</span><div><div class="t">Agent calls endpoint</div><div class="d">GET /v1/price/ETH</div></div></div>
+        <div class="step"><span class="n">02</span><div><div class="t">Server replies 402</div><div class="d">PAYMENT-REQUIRED + quote</div></div></div>
+        <div class="step"><span class="n">03</span><div><div class="t">Agent pays via Gateway</div><div class="d">Circle batched USDC</div></div></div>
+        <div class="step"><span class="n">04</span><div><div class="t">Server returns data</div><div class="d">200 OK, ms-level</div></div></div>
       </div>
     </section>
+
+    <!-- Featured live endpoints — fed by /api/v1/health -->
+    <section class="featured" id="featured">
+      <div class="feat-head">
+        <h2>Live on Arc Testnet</h2>
+        <span class="feat-sub">callable now · pay in USDC</span>
+      </div>
+      <div class="feat-grid" id="feat-grid">
+        <div class="feat-card"><div class="desc">Loading live endpoints from <code>/api/v1/health</code>…</div></div>
+      </div>
+    </section>
+
+    <!-- 3 Category hero cards -->
+    <section class="cat-strip" id="cat-strip"></section>
 
     <section id="catalog">
       <div class="searchbar">
@@ -130,9 +152,20 @@
   <script type="module">
     import { BUNDLES, ENDPOINTS, CATEGORIES, MARKET_STATS, isLive } from './data.js';
 
-    // ── Stats ──
-    document.getElementById('st-vol').textContent = MARKET_STATS.volume24h;
-    document.getElementById('st-txns').textContent = MARKET_STATS.txns30d;
+    // ── Live stats — fetched from /api/v1/health (free endpoint) ──
+    // Falls back gracefully if the API is down so the catalog still
+    // renders.
+    const LIVE_API_BASE = `https://${'arc-agent-seven.vercel.app'}`;
+    async function loadLiveHealth() {
+      try {
+        const r = await fetch(`${LIVE_API_BASE}/api/v1/health`, { cache: 'no-store' });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return await r.json();
+      } catch (e) {
+        console.warn('[arc-agentic] /v1/health unreachable:', e.message);
+        return null;
+      }
+    }
 
     // Distinct services (by service name) for the Services tab + stat.
     const serviceMap = new Map();
@@ -144,6 +177,66 @@
     }
     const SERVICES = [...serviceMap.values()];
     document.getElementById('st-svc').textContent = SERVICES.length;
+
+    // ── Render 3 category hero cards ──────────────────────────────
+    function renderCategoryStrip() {
+      const counts = { search: 0, inference: 0, data: 0 };
+      const liveCounts = { search: 0, inference: 0, data: 0 };
+      for (const e of ENDPOINTS) {
+        if (counts[e.category] !== undefined) counts[e.category]++;
+        if (isLive(e) && liveCounts[e.category] !== undefined) liveCounts[e.category]++;
+      }
+      document.getElementById('cat-strip').innerHTML = CATEGORIES.map(c => `
+        <div class="cat-card" data-cat="${c.id}" onclick="document.getElementById('f-cat').value='${c.id}'; document.getElementById('f-cat').dispatchEvent(new Event('change')); document.getElementById('catalog').scrollIntoView({behavior:'smooth'});">
+          <div class="ic">${c.icon}</div>
+          <h3>${c.name}</h3>
+          <div class="tag">${c.tagline}</div>
+          <div class="stat-row">
+            <span><b>${counts[c.id]}</b> services</span>
+            <span><b>${liveCounts[c.id]}</b> live</span>
+          </div>
+        </div>
+      `).join('');
+    }
+    renderCategoryStrip();
+
+    // ── Featured live endpoints (from /api/v1/health) ─────────────
+    function renderFeatured(health) {
+      const grid = document.getElementById('feat-grid');
+      const list = health?.live_endpoints || [];
+      if (!list.length) {
+        grid.innerHTML = `<div class="feat-card"><div class="desc">No live endpoints reported by health check.</div></div>`;
+        return;
+      }
+      grid.innerHTML = list.map(ep => {
+        const free = ep.price_usdc === 0;
+        const tryUrl = `${LIVE_API_BASE}/api${ep.path
+          .replace('{token}', 'ETH')
+          .replace('{protocol}', 'aave-v3')
+          .replace('{address}', '0x0000000000000000000000000000000000000000')}`;
+        return `
+          <div class="feat-card">
+            <span class="method ${free ? 'free' : ''}">${ep.method}</span>
+            <div class="path">${ep.path}</div>
+            <div class="desc">${ep.desc || ''}</div>
+            <div class="price-row">
+              <span class="p ${free ? 'free' : ''}">${free ? 'FREE' : '$' + ep.price_usdc.toFixed(4)}</span>
+              <a href="${tryUrl}" target="_blank" rel="noreferrer noopener">try →</a>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    // Kick off the live fetch + wire st-live counter when it returns.
+    loadLiveHealth().then(health => {
+      if (health) {
+        document.getElementById('st-live').textContent = health.live_endpoint_count ?? health.live_endpoints?.length ?? '—';
+        renderFeatured(health);
+      } else {
+        document.getElementById('st-live').textContent = 'offline';
+        document.getElementById('feat-grid').innerHTML = `<div class="feat-card"><div class="desc">Health endpoint unreachable. Try again in a moment.</div></div>`;
+      }
+    });
 
     const catLabel = { search: 'Search', inference: 'Inference', data: 'Data' };
     const priceNum = (p) => {
