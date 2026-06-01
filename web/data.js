@@ -28,10 +28,14 @@ export const MARKET_STATS = {
 // seller-api currently serves GET /v1/price/:token — once it's
 // deployed to a public host, uncomment its path below.
 export const LIVE_PATHS = new Set([
-  "/v1/price/:token",      // Vercel Function · CoinGecko · $0.001
-  "/v1/pools",             // Vercel Function · DeFiLlama yields · $0.002
-  "/v1/tvl/:protocol",     // Vercel Function · DeFiLlama · $0.001
-  "/v1/balance/:address",  // Vercel Function · Arc Testnet RPC · $0.0005
+  "/v1/price/:token",              // CoinGecko · $0.001
+  "/v1/pools",                     // DeFiLlama yields · $0.002
+  "/v1/tvl/:protocol",             // DeFiLlama · $0.001
+  "/v1/balance/:address",          // Arc Testnet RPC · $0.0005
+  "/v1/gas/estimate",              // Arc Testnet RPC · $0.0005
+  "/v1/contract/source/:address",  // ArcScan API · $0.002
+  "/v1/sentiment/fear-greed",      // alternative.me · $0.001
+  "/v1/web/search",                // DuckDuckGo / Brave · $0.003
 ]);
 
 // Host serving the live endpoints. Live endpoints are reachable at:
@@ -199,12 +203,12 @@ export const ENDPOINTS = [
   { category: "search", icon: "◐", service: "On-chain Search",  domain: "search.arc-agentic.dev",    method: "POST", path: "/v1/onchain/find",       desc: "Find addresses, swaps, contract deployments matching a pattern.",              price: "$0.002" },
   { category: "search", icon: "▣", service: "Protocol Search",  domain: "search.arc-agentic.dev",    method: "GET",  path: "/v1/protocol/find",      desc: "Search DeFi protocols by chain, category, or TVL band.",                       price: "$0.001" },
   { category: "search", icon: "✓", service: "Protocol Audit",   domain: "search.arc-agentic.dev",    method: "GET",  path: "/v1/audit/:protocol",    desc: "Audit reports + contract risk flags for a given protocol.",                    price: "$0.002" },
-  { category: "search", icon: "⌘", service: "Web Search",       domain: "search.arc-agentic.dev",    method: "POST", path: "/v1/web/search",         desc: "Web search wrapper (Exa-style) optimized for fresh crypto + finance content.", price: "$0.003" },
+  { category: "search", icon: "⌘", service: "Web Search",       domain: "arc-agent-seven.vercel.app/api", method: "GET",  path: "/v1/web/search",         desc: "Web search wrapper. DuckDuckGo Instant Answer by default; set BRAVE_SEARCH_KEY for full ranked results. Query via ?q=.", price: "$0.003" },
 
   // ─────────── INFERENCE ───────────
   { category: "inference", icon: "△", service: "LLM Completion",    domain: "infer.arc-agentic.dev",  method: "POST", path: "/v1/llm/complete",       desc: "Generic LLM completion (Claude / GPT / Grok routed per pricing).",        price: "$0.005" },
   { category: "inference", icon: "▽", service: "LLM Reasoning",     domain: "infer.arc-agentic.dev",  method: "POST", path: "/v1/llm/reason",         desc: "Higher-quality reasoning model for multi-step inference tasks.",          price: "$0.01"  },
-  { category: "inference", icon: "❀", service: "Contract Source",   domain: "infer.arc-agentic.dev",  method: "GET",  path: "/v1/contract/source",    desc: "Verified contract source code for an address (ArcScan-backed).",          price: "$0.0005"},
+  { category: "inference", icon: "❀", service: "Contract Source",   domain: "arc-agent-seven.vercel.app/api", method: "GET",  path: "/v1/contract/source/:address",  desc: "Verified Solidity source + ABI + compiler metadata for a contract. ArcScan-backed. Source preview up to 6 KB.", price: "$0.002" },
   { category: "inference", icon: "⊿", service: "Contract Explain",  domain: "infer.arc-agentic.dev",  method: "POST", path: "/v1/contract/explain",   desc: "Plain-English explanation of what a contract does + entry points.",       price: "$0.012" },
   { category: "inference", icon: "✦", service: "Audit Summarize",   domain: "infer.arc-agentic.dev",  method: "POST", path: "/v1/audit/summarize",    desc: "Summarize a long audit report into bullets + severity buckets.",          price: "$0.008" },
   { category: "inference", icon: "❍", service: "DeFi Q&A",          domain: "infer.arc-agentic.dev",  method: "POST", path: "/v1/defi/qa",            desc: "Chat with a DeFi-specialized model (TVL/APY/risk vocabulary).",           price: "$0.004" },
@@ -212,7 +216,7 @@ export const ENDPOINTS = [
   // ─────────── DATA ───────────
   { category: "data", icon: "₮", service: "Token Price",       domain: "arc-agent-seven.vercel.app/api", method: "GET", path: "/v1/price/:token",      desc: "Real-time price for any token by symbol or address. CoinGecko-backed.", price: "$0.001"  },
   { category: "data", icon: "≈", service: "DEX Liquidity",     domain: "data.arc-agentic.dev",   method: "GET",  path: "/v1/liquidity/:pair",     desc: "Liquidity depth and estimated slippage across DEXs.",                  price: "$0.001"  },
-  { category: "data", icon: "☷", service: "Crypto Sentiment",  domain: "data.arc-agentic.dev",   method: "POST", path: "/v1/sentiment",           desc: "Bull/bear sentiment score from social + news.",                        price: "$0.002"  },
+  { category: "data", icon: "☷", service: "Fear & Greed",      domain: "arc-agent-seven.vercel.app/api", method: "GET",  path: "/v1/sentiment/fear-greed",  desc: "Crypto Fear & Greed Index (0-100) today + 7-day trend. alternative.me-backed.", price: "$0.001"  },
   { category: "data", icon: "◉", service: "On-chain Flow",     domain: "data.arc-agentic.dev",   method: "GET",  path: "/v1/flow/:token",         desc: "Whale and exchange in/out flows for a given token.",                   price: "$0.002"  },
   { category: "data", icon: "⊞", service: "Balance Lookup",    domain: "arc-agent-seven.vercel.app/api", method: "GET", path: "/v1/balance/:address",  desc: "Native (USDC gas) + USDC ERC-20 balances for an Arc address. Arc RPC direct.", price: "$0.0005" },
   { category: "data", icon: "⊟", service: "Tx History",        domain: "chain.arc-agentic.dev",  method: "GET",  path: "/v1/txs/:address",        desc: "Recent transaction history for a wallet.",                             price: "$0.001"  },
@@ -225,6 +229,6 @@ export const ENDPOINTS = [
   { category: "data", icon: "▦", service: "Market News",       domain: "news.arc-agentic.dev",   method: "POST", path: "/v1/market",              desc: "Token / project-specific news from crypto + finance sources.",         price: "$0.002"  },
   { category: "data", icon: "%", service: "Yield Pools",       domain: "arc-agent-seven.vercel.app/api", method: "GET", path: "/v1/pools",             desc: "Yield pools across DeFi protocols (APY, TVL). DeFiLlama-backed. Filter by ?token + ?min_tvl_usd.", price: "$0.002"  },
   { category: "data", icon: "Σ", service: "TVL Tracker",       domain: "arc-agent-seven.vercel.app/api", method: "GET", path: "/v1/tvl/:protocol",     desc: "Total value locked for a protocol (slug, e.g. aave-v3). DeFiLlama-backed.", price: "$0.001"  },
-  { category: "data", icon: "⛽", service: "Gas Estimate",      domain: "data.arc-agentic.dev",   method: "GET",  path: "/v1/gas/:tx",             desc: "Estimated gas (USDC) for a tx on Arc — supports raw tx + common ops.", price: "$0.0005" },
+  { category: "data", icon: "⛽", service: "Gas Estimate",      domain: "arc-agent-seven.vercel.app/api", method: "GET",  path: "/v1/gas/estimate",        desc: "Live Arc gas price (gwei + wei) + USDC cost per common op (transfer, swap, addLiquidity). Arc RPC direct.", price: "$0.0005" },
   { category: "data", icon: "≷", service: "Impermanent Loss",  domain: "defi.arc-agentic.dev",   method: "POST", path: "/v1/il/estimate",         desc: "Estimate impermanent loss exposure for a given LP position.",          price: "$0.001"  },
 ];

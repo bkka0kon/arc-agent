@@ -210,10 +210,9 @@
       }
       grid.innerHTML = list.map(ep => {
         const free = ep.price_usdc === 0;
-        const tryUrl = `${LIVE_API_BASE}/api${ep.path
-          .replace('{token}', 'ETH')
-          .replace('{protocol}', 'aave-v3')
-          .replace('{address}', '0x0000000000000000000000000000000000000000')}`;
+        // health.try_url is a fully-formed example path with a sensible
+        // default arg, so we don't have to know how to substitute per type.
+        const tryUrl = `${LIVE_API_BASE}/api${ep.try_url || ep.path}`;
         return `
           <div class="feat-card">
             <span class="method ${free ? 'free' : ''}">${ep.method}</span>
