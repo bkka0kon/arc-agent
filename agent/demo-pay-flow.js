@@ -96,9 +96,13 @@ async function executePay(ep) {
   const url = `${HOST}/api${tryPath}`;
   console.log(`  ${c.cyan("→")} circle services pay ${url}`);
   try {
+    // shell:true so Windows resolves `circle.cmd` (batch shim installed
+    // by the Circle CLI npm package) via the regular PATH lookup. Without
+    // it, Node's execFile only finds .exe extensions and bails with ENOENT.
     const { stdout, stderr } = await exec("circle", ["services", "pay", url], {
       maxBuffer: 4 * 1024 * 1024,
       timeout: 60_000,
+      shell: true,
     });
     const out = (stdout || stderr || "").trim();
     // Show last 400 chars — Circle CLI prints multi-line output;
