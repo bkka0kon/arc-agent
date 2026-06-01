@@ -99,10 +99,10 @@
     </section>
 
     <div class="admin-kpi" id="kpi">
-      <div class="kpi"><div class="l">Total revenue</div><div class="v gold" id="k-rev">—</div><div class="sub">USDC, gateway-settled</div></div>
+      <div class="kpi"><div class="l">x402 revenue</div><div class="v gold" id="k-x402">—</div><div class="sub">agent payments, last ~17h</div></div>
       <div class="kpi"><div class="l">Settlements</div><div class="v" id="k-sett">—</div><div class="sub">inbound USDC transfers</div></div>
       <div class="kpi"><div class="l">Unique payers</div><div class="v" id="k-pay">—</div><div class="sub">distinct sender wallets</div></div>
-      <div class="kpi"><div class="l">Live endpoints</div><div class="v green" id="k-ep">—</div><div class="sub">currently 402-gated</div></div>
+      <div class="kpi"><div class="l">Wallet balance</div><div class="v green" id="k-bal">—</div><div class="sub">all funding sources</div></div>
     </div>
 
     <div class="payer-list">
@@ -162,10 +162,10 @@
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const j = await r.json();
 
-        document.getElementById('k-rev').textContent = fmtUsdc(j.revenue_usdc);
+        document.getElementById('k-x402').textContent = fmtUsdc(j.x402_revenue_usdc);
         document.getElementById('k-sett').textContent = j.settlement_count ?? '—';
         document.getElementById('k-pay').textContent = j.unique_payers ?? '—';
-        document.getElementById('k-ep').textContent = j.live_endpoints ?? '—';
+        document.getElementById('k-bal').textContent = fmtUsdc(j.wallet_balance_usdc);
 
         const payersHtml = (j.top_payers || []).length === 0
           ? `<div class="row"><div class="rank">—</div><div class="addr">No settlements yet. Run the demo: <code style="font-family:var(--mono);color:var(--gold)">PAY=1 node agent/demo-pay-flow.js</code></div><div class="paid">—</div><div class="cnt">—</div></div>`
@@ -180,7 +180,8 @@
         document.getElementById('payers').innerHTML = payersHtml;
         document.getElementById('meta-last').textContent = `Last settlement: ${fmtTime(j.last_settlement)}`;
       } catch (e) {
-        document.getElementById('k-rev').textContent = 'err';
+        document.getElementById('k-x402').textContent = 'err';
+        document.getElementById('k-bal').textContent = 'err';
         document.getElementById('payers').innerHTML = `<div class="row"><div class="rank">!</div><div class="addr">Failed to load: ${e.message}</div><div class="paid">—</div><div class="cnt">—</div></div>`;
       }
     }

@@ -130,7 +130,7 @@ export default async function handler(req) {
       }
     }
 
-    // 5. Top payers.
+    // 5. Top payers + x402 revenue in the scanned window.
     const topPayers = [...senderTotals.entries()]
       .sort((a, b) => Number(b[1].paidRaw - a[1].paidRaw))
       .slice(0, 5)
@@ -139,12 +139,22 @@ export default async function handler(req) {
         paid_usdc: Number(v.paidRaw) / 10 ** USDC_DECIMALS,
         settlement_count: v.count,
       }));
+    let x402RevenueRaw = 0n;
+    for (const v of senderTotals.values()) x402RevenueRaw += v.paidRaw;
+    const x402RevenueUsdc = Number(x402RevenueRaw) / 10 ** USDC_DECIMALS;
 
     return jsonResponse({
       seller,
       network: "eip155:5042002",
-      revenue_usdc: revenueUsdc,
-      revenue_usdc_formatted: revenueUsdc.toFixed(6),
+      // Total USDC currently in the seller wallet. May include funding
+      // sources outside x402 (faucet drips, manual transfers, etc.).
+      wallet_balance_usdc: revenueUsdc,
+      wallet_balance_usdc_formatted: revenueUsdc.toFixed(6),
+      // Revenue attributable to x402 settlements within the scanned
+      // window only. This is the number to brag about — it's literal
+      // agent → seller payments verified on-chain.
+      x402_revenue_usdc: x402RevenueUsdc,
+      x402_revenue_usdc_formatted: x402RevenueUsdc.toFixed(6),
       settlement_count: totalLogs,
       unique_payers: senderTotals.size,
       last_settlement: lastSettlementIso,
@@ -159,7 +169,7 @@ export default async function handler(req) {
       top_payers: topPayers,
       ts: new Date().toISOString(),
       note: scanComplete
-        ? "Cached 60 s. Stats over the most recent ~17 h of Arc Testnet history."
+        ? "Cached 60 s. Stats over the most recent ~17 h of Arc Testnet history. wallet_balance_usdc is the full balance (any funding source); x402_revenue_usdc is the subset from agent payments in the window."
         : `Cached 60 s. ${chunksFailed}/${chunksAttempted} chunks failed (Arc RPC rate limit) — figures reflect successfully-scanned chunks only.`,
     }, 200);
   } catch (err) {

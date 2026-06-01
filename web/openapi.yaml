@@ -236,8 +236,14 @@ paths:
                 properties:
                   seller: { type: string }
                   network: { type: string, example: "eip155:5042002" }
-                  revenue_usdc: { type: number }
-                  revenue_usdc_formatted: { type: string }
+                  wallet_balance_usdc:
+                    type: number
+                    description: Total USDC in seller wallet — includes any funding source (faucet, manual, x402).
+                  wallet_balance_usdc_formatted: { type: string }
+                  x402_revenue_usdc:
+                    type: number
+                    description: Subset of wallet_balance attributable to x402 agent payments inside the scan window. Zero until first settlement.
+                  x402_revenue_usdc_formatted: { type: string }
                   settlement_count: { type: integer }
                   unique_payers: { type: integer }
                   last_settlement: { type: string, format: date-time, nullable: true }

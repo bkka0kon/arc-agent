@@ -69,10 +69,10 @@ async function notifyDiscord(content) {
 
 function buildDiscordMessage(prev, next) {
   const newSettlements = next.settlement_count - (prev?.settlement_count ?? 0);
-  const revenueDelta = next.revenue_usdc - (prev?.revenue_usdc ?? 0);
+  const x402Delta = next.x402_revenue_usdc - (prev?.x402_revenue_usdc ?? 0);
   const lines = [
-    `🪙 **${newSettlements}** new settlement${newSettlements > 1 ? "s" : ""} · +**$${revenueDelta.toFixed(6)}** USDC`,
-    `Total revenue: \`$${next.revenue_usdc_formatted}\` · ${next.settlement_count} settlements · ${next.unique_payers} unique payers`,
+    `🪙 **${newSettlements}** new settlement${newSettlements > 1 ? "s" : ""} · +**$${x402Delta.toFixed(6)}** USDC via x402`,
+    `x402 revenue: \`$${next.x402_revenue_usdc_formatted}\` · wallet balance: \`$${next.wallet_balance_usdc_formatted}\` · ${next.settlement_count} settlements · ${next.unique_payers} unique payers`,
   ];
   if (next.top_payers?.[0]) {
     const t = next.top_payers[0];
