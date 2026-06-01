@@ -32,8 +32,10 @@ info:
     name: MIT
 
 servers:
+  - url: https://arc-agent-seven.vercel.app/api
+    description: Live reference deployment on Arc Testnet (Vercel Edge Functions)
   - url: https://{subdomain}.arc-agentic.dev
-    description: Per-service domains on Arc Testnet
+    description: Placeholder per-service domains (not all deployed yet)
     variables:
       subdomain:
         default: data
@@ -46,6 +48,15 @@ tags:
     description: LLM completion, reasoning, contract explanation.
   - name: Data
     description: Price feeds, TVL, wallet history, sentiment.
+  - name: Meta
+    description: |
+      Free observability — `/v1/health` (catalog manifest, no payment)
+      and `/v1/admin/stats` (revenue + payers leaderboard derived live
+      from the seller wallet's on-chain history).
+
+# x-live: true on a path indicates the endpoint is deployed and
+# 402-gated against the live Vercel server above. Anything without
+# x-live is a placeholder in this catalog awaiting a seller.
 
 # ════════════════════════════════════════════════════════════════
 #  PAYMENT RESPONSES (referenced by every endpoint)
@@ -77,24 +88,44 @@ components:
   schemas:
     PaymentRequiredBody:
       type: object
-      required: [accepts, resource]
+      required: [x402Version, accepts]
+      description: |
+        x402 v2 PaymentRequired body, aligned with Circle Gateway's
+        `/v1/x402/supported` advertisement for Arc Testnet
+        (scheme `GatewayWalletBatched`).
       properties:
+        x402Version: { type: integer, example: 2 }
         accepts:
           type: array
           items:
             type: object
-            required: [scheme, price, network, payTo]
+            required: [scheme, network, maxAmountRequired, resource, payTo, asset, extra]
             properties:
-              scheme:      { type: string, enum: [exact, permit2], example: "exact" }
-              price:       { type: string, example: "$0.001" }
-              network:     { type: string, example: "eip155:5042002" }
-              payTo:       { type: string, example: "0xSellerWalletAddress" }
-              description: { type: string }
-              mimeType:    { type: string, example: "application/json" }
-              expiresIn:   { type: integer, description: "Seconds until quote expires.", example: 300 }
-        resource:
-          type: string
-          example: "https://data.arc-agentic.dev/v1/price/ETH"
+              scheme:           { type: string, example: "exact" }
+              network:          { type: string, example: "eip155:5042002" }
+              maxAmountRequired: { type: string, description: "Atomic USDC units (string).", example: "1000" }
+              resource:         { type: string, example: "https://arc-agent-seven.vercel.app/api/v1/price/ETH" }
+              description:      { type: string }
+              mimeType:         { type: string, example: "application/json" }
+              payTo:            { type: string, example: "0xEF4FE8d385b4E023265cb85703cF239F518b97a3" }
+              maxTimeoutSeconds: { type: integer, example: 300 }
+              asset:            { type: string, example: "0x3600000000000000000000000000000000000000" }
+              extra:
+                type: object
+                required: [name, version, verifyingContract, minValiditySeconds, assets]
+                properties:
+                  name:               { type: string, example: "GatewayWalletBatched" }
+                  version:            { type: string, example: "1" }
+                  verifyingContract:  { type: string, example: "0x0077777d7eba4688bdef3e311b846f25870a19b9" }
+                  minValiditySeconds: { type: integer, example: 604800 }
+                  assets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        symbol:   { type: string, example: "USDC" }
+                        address:  { type: string, example: "0x3600000000000000000000000000000000000000" }
+                        decimals: { type: integer, example: 6 }
 
   parameters:
     Token:
@@ -145,6 +176,82 @@ security:
 #  PATHS
 # ════════════════════════════════════════════════════════════════
 paths:
+
+  # ─────────── META (FREE) ───────────
+  /v1/health:
+    get:
+      tags: [Meta]
+      summary: Catalog manifest — list of live endpoints with price + try_url.
+      description: |
+        Free, unauthenticated. Returns every endpoint currently
+        402-gated on the live Vercel deployment, with `price_usdc`
+        and a `try_url` example call per entry. Agents re-fetch at
+        boot to auto-discover what's available.
+      x-live: true
+      security: []          # override global x402 — this endpoint is free
+      responses:
+        "200":
+          description: Marketplace catalog.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  service: { type: string, example: "arc-agentic" }
+                  network: { type: string, example: "eip155:5042002" }
+                  gateway_url: { type: string }
+                  seller_wallet_configured: { type: boolean }
+                  ts: { type: string, format: date-time }
+                  live_endpoint_count: { type: integer, example: 10 }
+                  live_endpoints:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        path:      { type: string, example: "/v1/price/{token}" }
+                        try_url:   { type: string, example: "/v1/price/ETH" }
+                        method:    { type: string, example: "GET" }
+                        price_usdc: { type: number, example: 0.001 }
+                        desc:      { type: string }
+
+  /v1/admin/stats:
+    get:
+      tags: [Meta]
+      summary: Marketplace observability — revenue, settlements, top payers.
+      description: |
+        Free, unauthenticated. Derived live from the seller wallet's
+        on-chain history via Arc RPC (last ~17 hours). Cached 60 s
+        at the edge. No private database; every number here is
+        reproducible from the same public event log.
+      x-live: true
+      security: []
+      responses:
+        "200":
+          description: Aggregated marketplace stats.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  seller: { type: string }
+                  network: { type: string, example: "eip155:5042002" }
+                  revenue_usdc: { type: number }
+                  revenue_usdc_formatted: { type: string }
+                  settlement_count: { type: integer }
+                  unique_payers: { type: integer }
+                  last_settlement: { type: string, format: date-time, nullable: true }
+                  scan_window_blocks: { type: integer }
+                  live_endpoints: { type: integer }
+                  top_payers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        address:          { type: string }
+                        paid_usdc:        { type: number }
+                        settlement_count: { type: integer }
+                  ts: { type: string, format: date-time }
 
   # ─────────── SEARCH ───────────
   /v1/token/find:
@@ -201,15 +308,17 @@ paths:
         "200": { $ref: "#/components/responses/Success" }
         "402": { $ref: "#/components/responses/PaymentRequired" }
   /v1/web/search:
-    post:
+    get:
       tags: [Search]
-      summary: Web search wrapper (Exa-style) optimized for fresh crypto / finance content.
+      summary: Web search wrapper. DuckDuckGo Instant Answer by default; Brave when BRAVE_SEARCH_KEY env is set.
       description: Price $0.003.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { type: object, properties: { query: { type: string }, freshness_days: { type: integer, default: 7 } } }
+      x-live: true
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string }
+          example: bitcoin halving
       responses:
         "200": { $ref: "#/components/responses/Success" }
         "402": { $ref: "#/components/responses/PaymentRequired" }
@@ -252,16 +361,14 @@ paths:
       responses:
         "200": { $ref: "#/components/responses/Success" }
         "402": { $ref: "#/components/responses/PaymentRequired" }
-  /v1/contract/source:
+  /v1/contract/source/{address}:
     get:
       tags: [Inference]
-      summary: Verified contract source code for an address.
-      description: Price $0.0005. ArcScan-backed.
+      summary: Verified Solidity source + ABI + compiler metadata.
+      description: Price $0.002. ArcScan-backed. Source preview up to 6 KB; `source_truncated` flag + `source_length` for the full size.
+      x-live: true
       parameters:
-        - name: address
-          in: query
-          required: true
-          schema: { type: string, pattern: "^0x[a-fA-F0-9]{40}$" }
+        - $ref: "#/components/parameters/Address"
       responses:
         "200": { $ref: "#/components/responses/Success" }
         "402": { $ref: "#/components/responses/PaymentRequired" }
@@ -319,7 +426,8 @@ paths:
     get:
       tags: [Data]
       summary: Real-time price for any token by symbol or address.
-      description: Price $0.001.
+      description: Price $0.001. CoinGecko-backed.
+      x-live: true
       parameters: [{ $ref: "#/components/parameters/Token" }]
       responses:
         "200": { $ref: "#/components/responses/Success" }
@@ -333,16 +441,12 @@ paths:
       responses:
         "200": { $ref: "#/components/responses/Success" }
         "402": { $ref: "#/components/responses/PaymentRequired" }
-  /v1/sentiment:
-    post:
+  /v1/sentiment/fear-greed:
+    get:
       tags: [Data]
-      summary: Bull/bear sentiment score from social + news.
-      description: Price $0.002.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { type: object, properties: { token: { type: string } } }
+      summary: Crypto Fear & Greed Index — today + 7-day trend.
+      description: Price $0.001. alternative.me-backed.
+      x-live: true
       responses:
         "200": { $ref: "#/components/responses/Success" }
         "402": { $ref: "#/components/responses/PaymentRequired" }
@@ -358,8 +462,9 @@ paths:
   /v1/balance/{address}:
     get:
       tags: [Data]
-      summary: Native + USDC balances for an Arc address.
-      description: Price $0.0005.
+      summary: Native (USDC gas) + USDC ERC-20 balances for an Arc address.
+      description: Price $0.0005. Arc Testnet RPC direct.
+      x-live: true
       parameters: [{ $ref: "#/components/parameters/Address" }]
       responses:
         "200": { $ref: "#/components/responses/Success" }
@@ -459,34 +564,32 @@ paths:
   /v1/pools:
     get:
       tags: [Data]
-      summary: Yield pools with APY across protocols.
-      description: Price $0.002.
+      summary: Yield pools across DeFi protocols, sorted by APY.
+      description: Price $0.002. DeFiLlama yields, filterable by `token` and `min_tvl_usd`, capped at `limit` rows (default 20, max 100).
+      x-live: true
       parameters:
-        - { name: token, in: query, schema: { type: string }, required: false }
-        - { name: min_tvl_usd, in: query, schema: { type: integer }, required: false }
+        - { name: token,        in: query, schema: { type: string  }, required: false }
+        - { name: min_tvl_usd,  in: query, schema: { type: integer }, required: false, description: "Default 100 000." }
+        - { name: limit,        in: query, schema: { type: integer }, required: false }
       responses:
         "200": { $ref: "#/components/responses/Success" }
         "402": { $ref: "#/components/responses/PaymentRequired" }
   /v1/tvl/{protocol}:
     get:
       tags: [Data]
-      summary: Total value locked for a protocol over time.
-      description: Price $0.001.
+      summary: Current TVL for a DeFi protocol.
+      description: Price $0.001. DeFiLlama-backed. Pass the protocol slug (e.g. `aave-v3`, `uniswap-v3`).
+      x-live: true
       parameters: [{ $ref: "#/components/parameters/Protocol" }]
       responses:
         "200": { $ref: "#/components/responses/Success" }
         "402": { $ref: "#/components/responses/PaymentRequired" }
-  /v1/gas/{tx}:
+  /v1/gas/estimate:
     get:
       tags: [Data]
-      summary: Estimated gas (USDC) for a tx on Arc.
-      description: Price $0.0005.
-      parameters:
-        - name: tx
-          in: path
-          required: true
-          schema: { type: string }
-          example: "raw_or_typed_op"
+      summary: Live Arc gas price + USDC cost per common op.
+      description: Price $0.0005. Reads `eth_gasPrice` from Arc RPC and pre-computes the USDC cost for `native_transfer`, `erc20_transfer`, `erc20_approve`, `uniswap_v2_swap`, `uniswap_v2_add_lp`.
+      x-live: true
       responses:
         "200": { $ref: "#/components/responses/Success" }
         "402": { $ref: "#/components/responses/PaymentRequired" }
