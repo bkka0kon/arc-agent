@@ -1,0 +1,43 @@
+{
+  "name": "@arc-agent/sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for the Arc Agent x402 marketplace on Arc Testnet. 11 typed methods, transparent USDC payment via Circle CLI or a custom signer.",
+  "license": "MIT",
+  "author": "bkka0kon",
+  "repository": "https://github.com/bkka0kon/arc-agent",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "example:safe-swap": "tsx examples/safe-swap-bot.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "x402",
+    "arc",
+    "circle",
+    "usdc",
+    "agent",
+    "marketplace",
+    "defi"
+  ]
+}
