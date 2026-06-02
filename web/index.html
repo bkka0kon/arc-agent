@@ -219,7 +219,8 @@
       serviceMap.get(e.service).endpoints.push(e);
     }
     const SERVICES = [...serviceMap.values()];
-    document.getElementById('st-svc').textContent = SERVICES.length;
+    // (st-svc tile was removed in the Phase 5 hero redesign — services
+    // count now lives in the ribbon "Bundles" line if needed.)
 
     // ── Render 3 category hero cards ──────────────────────────────
     function renderCategoryStrip() {
