@@ -296,225 +296,48 @@ const BUNDLES = {
     },
   },
 
-  // ─────────── DATA ───────────
-  "token-pulse": {
-    name: "Token Pulse",
-    argHint: "token symbol (ETH, USDC, ARC…)",
+  // ─────────── PHASE 8 — SAFE SWAP ───────────
+  // Three composable services for a real trading-agent decision cycle.
+  // Mirrors examples/safe-swap-bot.ts in sdk/typescript — kept here so
+  // `node orchestrator.js safe-swap <0xTOKEN>` works as a parity check.
+  "safe-swap": {
+    name: "Safe Swap (Phase 8)",
+    argHint: "0x… token address to evaluate buying",
     async run(arg) {
-      const t = (arg || "ETH").toUpperCase();
-      console.log(`\n▶ Running "Token Pulse" for token: ${t}`);
-
-      // Parallel: price + liquidity + sentiment
-      const [price, liquidity, sentiment] = await Promise.all([
-        payFetch(`${BASE.price}/v1/price/${t}`,           { maxPay: "0.001" }),
-        payFetch(`${BASE.dex}/v1/liquidity/${t}-USDC`,    { maxPay: "0.001" }),
-        payFetch(`${BASE.sentiment}/v1/sentiment`,        { method: "POST", body: { token: t }, maxPay: "0.002" }),
-      ]);
-
-      // Conditional: if 24h move > 5%, pull macro news + on-chain flow
-      let news = null, flow = null;
-      const change = price?.change24h;
-      if (change != null && Math.abs(change) > 5) {
-        console.log(`  Δ24h = ${change}% > 5% → fetching news + flow`);
-        [news, flow] = await Promise.all([
-          payFetch(`${BASE.news}/v1/macro`,    { method: "POST", body: { token: t }, maxPay: "0.002" }),
-          payFetch(`${BASE.flow}/v1/flow/${t}`,{ maxPay: "0.002" }),
-        ]);
+      const addr = arg || "0x3600000000000000000000000000000000000000";
+      console.log(`\n▶ Running "Safe Swap" decision cycle for: ${addr}`);
+      // Step 1: security gate ($0.010)
+      const security = await payFetch(
+        `${BASE.chain}/v1/token/security/${addr}`,
+        { maxPay: "0.010" },
+      );
+      if (security?.score != null && security.score < 50) {
+        return {
+          address: addr,
+          decision: "REJECT",
+          reason: `security score ${security.score} < 50`,
+          security,
+          _meta: { bundle: "Safe Swap", services_called: 1, pay_mode: PAY_MODE },
+        };
       }
-
-      return {
-        token: t,
-        summary: price?.price != null
-          ? `${t} is at $${price.price} (${change >= 0 ? "+" : ""}${change}% over 24h).`
-          : `Could not fetch price for ${t}.`,
-        price: price ?? "n/a",
-        liquidity: liquidity ?? "n/a",
-        sentiment: sentiment ?? "n/a",
-        ...(news ? { news } : {}),
-        ...(flow ? { flow } : {}),
-        _meta: { bundle: "Token Pulse", ...summarize([price, liquidity, sentiment, news, flow]), pay_mode: PAY_MODE },
-      };
-    },
-  },
-
-  "wallet-xray": {
-    name: "Wallet X-Ray",
-    argHint: "0x… wallet address",
-    async run(arg) {
-      const addr = arg || "0x0000000000000000000000000000000000000000";
-      console.log(`\n▶ Running "Wallet X-Ray" for address: ${addr}`);
-
-      const [balance, holdings, txs, risk] = await Promise.all([
-        payFetch(`${BASE.chain}/v1/balance/${addr}`,  { maxPay: "0.0005" }),
-        payFetch(`${BASE.chain}/v1/holdings/${addr}`, { maxPay: "0.001" }),
-        payFetch(`${BASE.chain}/v1/txs/${addr}`,      { maxPay: "0.001" }),
-        payFetch(`${BASE.risk}/v1/risk-score`,        { method: "POST", body: { address: addr }, maxPay: "0.003" }),
+      // Step 2 + 3: arb scan ($0.003) + LLM reasoning ($0.015), parallel
+      const [arb, llm] = await Promise.all([
+        payFetch(`${BASE.dex}/v1/dex/arb-scan?base=ETH&quote=USD&size=1000`, { maxPay: "0.003" }),
+        payFetch(
+          `${BASE.infer}/v1/llm/defi-reason?q=${encodeURIComponent(
+            `Given the token security + arb data in context, should I buy ${addr}?`,
+          )}&ctx=${encodeURIComponent(JSON.stringify({ security }))}`,
+          { maxPay: "0.015" },
+        ),
       ]);
-
       return {
         address: addr,
-        balance:  balance  ?? "n/a",
-        holdings: holdings ?? "n/a",
-        recent_txs: txs    ?? "n/a",
-        risk:    risk      ?? "n/a",
-        _meta: { bundle: "Wallet X-Ray", ...summarize([balance, holdings, txs, risk]), pay_mode: PAY_MODE },
-      };
-    },
-  },
-
-  "defi-scout": {
-    name: "DeFi Scout",
-    argHint: "token symbol to scout pools for (USDC, ETH…)",
-    async run(arg) {
-      const t = (arg || "USDC").toUpperCase();
-      console.log(`\n▶ Running "DeFi Scout" for token: ${t}`);
-
-      const pools = await payFetch(`${BASE.defi}/v1/pools?token=${t}`, { maxPay: "0.002" });
-      // For simplicity: pick top 3 by raw response order.
-      const topPools = (pools?.pools || []).slice(0, 3);
-
-      const [tvls, audits, il] = await Promise.all([
-        Promise.all(topPools.map(p =>
-          payFetch(`${BASE.defi}/v1/tvl/${p.protocol}`,    { maxPay: "0.001" }))),
-        Promise.all(topPools.map(p =>
-          payFetch(`${BASE.search}/v1/audit/${p.protocol}`,{ maxPay: "0.002" }))),
-        Promise.all(topPools.map(p =>
-          payFetch(`${BASE.defi}/v1/il/estimate`,          { method: "POST", body: { pool: p.id }, maxPay: "0.001" }))),
-      ]);
-
-      const ranked = topPools.map((p, i) => ({
-        ...p,
-        tvl: tvls[i] ?? "n/a",
-        audit: audits[i] ?? "n/a",
-        impermanent_loss: il[i] ?? "n/a",
-      }));
-
-      return {
-        token: t,
-        opportunities: ranked,
-        _meta: { bundle: "DeFi Scout", services_called: 1 + tvls.filter(Boolean).length + audits.filter(Boolean).length + il.filter(Boolean).length, pay_mode: PAY_MODE },
-      };
-    },
-  },
-
-  // ─────────── SEARCH ───────────
-  "token-discovery": {
-    name: "Token Discovery",
-    argHint: "search query (symbol, name, or partial address)",
-    async run(arg) {
-      const q = arg || "USDC";
-      console.log(`\n▶ Running "Token Discovery" for query: ${q}`);
-
-      const [lookup, listings, onchain] = await Promise.all([
-        payFetch(`${BASE.search}/v1/token/find?q=${encodeURIComponent(q)}`, { maxPay: "0.001" }),
-        payFetch(`${BASE.search}/v1/dex/listings?q=${encodeURIComponent(q)}`,{ maxPay: "0.001" }),
-        payFetch(`${BASE.search}/v1/onchain/find`,                          { method: "POST", body: { query: q }, maxPay: "0.002" }),
-      ]);
-
-      const matches = [lookup, listings, onchain].filter(Boolean).length;
-      // Optional: protocol search if matches >= 2
-      let protocol = null;
-      if (matches >= 2) {
-        protocol = await payFetch(`${BASE.search}/v1/protocol/find?q=${encodeURIComponent(q)}`, { maxPay: "0.001" });
-      }
-
-      return {
-        query: q,
-        lookup:   lookup   ?? "n/a",
-        listings: listings ?? "n/a",
-        onchain:  onchain  ?? "n/a",
-        ...(protocol ? { protocol } : {}),
-        _meta: { bundle: "Token Discovery", ...summarize([lookup, listings, onchain, protocol]), pay_mode: PAY_MODE },
-      };
-    },
-  },
-
-  "protocol-radar": {
-    name: "Protocol Radar",
-    argHint: "category or chain (e.g. 'lending', 'dex', 'arc')",
-    async run(arg) {
-      const q = arg || "dex";
-      console.log(`\n▶ Running "Protocol Radar" for criteria: ${q}`);
-
-      const search = await payFetch(`${BASE.search}/v1/protocol/find?q=${encodeURIComponent(q)}`, { maxPay: "0.001" });
-      const topProtocols = (search?.protocols || []).slice(0, 5);
-
-      const [tvls, audits] = await Promise.all([
-        Promise.all(topProtocols.map(p =>
-          payFetch(`${BASE.defi}/v1/tvl/${p.id}`,        { maxPay: "0.001" }))),
-        Promise.all(topProtocols.map(p =>
-          payFetch(`${BASE.search}/v1/audit/${p.id}`,    { maxPay: "0.002" }))),
-      ]);
-
-      const ranked = topProtocols.map((p, i) => ({ ...p, tvl: tvls[i] ?? "n/a", audit: audits[i] ?? "n/a" }));
-      return {
-        criteria: q,
-        protocols: ranked,
-        _meta: { bundle: "Protocol Radar", services_called: 1 + tvls.filter(Boolean).length + audits.filter(Boolean).length, pay_mode: PAY_MODE },
-      };
-    },
-  },
-
-  // ─────────── INFERENCE ───────────
-  "contract-explain": {
-    name: "Contract Explain",
-    argHint: "0x… contract address",
-    async run(arg) {
-      const addr = arg || "0x0000000000000000000000000000000000000000";
-      console.log(`\n▶ Running "Contract Explain" for: ${addr}`);
-
-      const source = await payFetch(`${BASE.infer}/v1/contract/source?address=${addr}`, { maxPay: "0.0005" });
-      if (!source) return { address: addr, summary: "Verified source not available — cannot explain.", _meta: { bundle: "Contract Explain", services_called: 1, pay_mode: PAY_MODE } };
-
-      const [explanation, audit] = await Promise.all([
-        payFetch(`${BASE.infer}/v1/contract/explain`,    { method: "POST", body: { source }, maxPay: "0.012" }),
-        payFetch(`${BASE.search}/v1/audit/${addr}`,      { maxPay: "0.002" }),
-      ]);
-
-      return {
-        address: addr,
-        summary: explanation?.summary ?? "Explanation not produced.",
-        entry_points: explanation?.entry_points ?? [],
-        ownership: explanation?.ownership ?? "unknown",
-        audit_status: audit ?? "no audit info on file",
-        risks: explanation?.risks ?? [],
-        _meta: { bundle: "Contract Explain", ...summarize([source, explanation, audit]), pay_mode: PAY_MODE },
-      };
-    },
-  },
-
-  "trade-advisor": {
-    name: "Trade Advisor",
-    argHint: "0x… wallet address",
-    async run(arg) {
-      const addr = arg || "0x0000000000000000000000000000000000000000";
-      console.log(`\n▶ Running "Trade Advisor" for wallet: ${addr}`);
-
-      const holdings = await payFetch(`${BASE.chain}/v1/holdings/${addr}`, { maxPay: "0.001" });
-      const tokens = (holdings?.tokens || []).map(t => t.symbol).slice(0, 5);
-
-      const [prices, liquidities] = await Promise.all([
-        Promise.all(tokens.map(t => payFetch(`${BASE.price}/v1/price/${t}`,          { maxPay: "0.001" }))),
-        Promise.all(tokens.map(t => payFetch(`${BASE.dex}/v1/liquidity/${t}-USDC`,   { maxPay: "0.001" }))),
-      ]);
-
-      const reasoning = await payFetch(`${BASE.infer}/v1/llm/reason`, {
-        method: "POST",
-        body: {
-          task: "rebalance",
-          holdings,
-          prices: tokens.map((t, i) => ({ symbol: t, price: prices[i] })),
-          liquidity: tokens.map((t, i) => ({ symbol: t, depth: liquidities[i] })),
-        },
-        maxPay: "0.01",
-      });
-
-      return {
-        address: addr,
-        suggestion: reasoning?.suggestion ?? "No suggestion produced.",
-        rationale:  reasoning?.rationale  ?? "n/a",
-        actions:    reasoning?.actions    ?? [],
-        _meta: { bundle: "Trade Advisor", services_called: 1 + prices.filter(Boolean).length + liquidities.filter(Boolean).length + (reasoning ? 1 : 0), pay_mode: PAY_MODE },
+        decision: llm?.actions?.some?.(a => a.type === "swap") ? "PROCEED" : "HOLD",
+        summary: llm?.summary ?? "n/a",
+        security,
+        arb,
+        llm,
+        _meta: { bundle: "Safe Swap", ...summarize([security, arb, llm]), pay_mode: PAY_MODE },
       };
     },
   },
