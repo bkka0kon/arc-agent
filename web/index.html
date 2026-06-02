@@ -42,10 +42,34 @@
       <p class="hero-sub">A marketplace where AI agents discover, pay for and use services — settled via USDC nanopayments, batched on Arc, with near-zero gas.</p>
 
       <div class="statbar">
-        <div class="stat"><div class="l">Live endpoints</div><div class="v gold" id="st-live">—</div></div>
-        <div class="stat"><div class="l">Services in catalog</div><div class="v" id="st-svc">0</div></div>
-        <div class="stat"><div class="l">Network</div><div class="v green">Arc Testnet</div></div>
-        <div class="stat"><div class="l">Settlement</div><div class="v">x402 · USDC</div></div>
+        <div class="stat">
+          <div class="l">x402 revenue</div>
+          <div class="v gold" id="st-rev">—</div>
+          <div class="sub" id="st-rev-sub">agent payments to date</div>
+        </div>
+        <div class="stat">
+          <div class="l">Settlements</div>
+          <div class="v" id="st-sett">—</div>
+          <div class="sub">Gateway-settled on-chain</div>
+        </div>
+        <div class="stat">
+          <div class="l">Unique paying agents</div>
+          <div class="v" id="st-payers">—</div>
+          <div class="sub">distinct wallets</div>
+        </div>
+        <div class="stat">
+          <div class="l">Live endpoints</div>
+          <div class="v" id="st-live">—</div>
+          <div class="sub" id="st-live-sub">all 402-gated</div>
+        </div>
+      </div>
+
+      <!-- Compact runtime ribbon — fed from /v1/admin/endpoint-health -->
+      <div class="ribbon" id="ribbon">
+        <span class="r-item"><span class="r-l">Network</span><span class="r-v">Arc Testnet · eip155:5042002</span></span>
+        <span class="r-item"><span class="r-l">Settlement</span><span class="r-v">x402 v2 · GatewayWalletBatched · USDC</span></span>
+        <span class="r-item"><span class="r-l">Avg latency</span><span class="r-v" id="r-lat">—</span></span>
+        <span class="r-item"><span class="r-l">Bundles</span><span class="r-v">4 live</span></span>
       </div>
 
       <!-- x402 explainer: 4-step strip below hero -->
@@ -135,7 +159,7 @@
             </svg>
             <span class="name">Arc Agentic</span>
           </a>
-          <p class="blurb">Built for agents and humans. An x402 marketplace running on Arc — Circle's stablecoin Layer 1, with USDC as the gas token.</p>
+          <p class="blurb">An x402 marketplace running on Arc — Circle's stablecoin Layer 1, with USDC as the gas token. Built for AI agents that need to discover, pay for and consume services without sign-up or API keys.</p>
         </div>
         <div class="meta">
           <div><a href="./admin.html" style="color:inherit;text-decoration:none">Admin stats →</a></div>
@@ -145,7 +169,7 @@
         </div>
       </div>
       <p class="disclaimer">
-        This is a sample project for educational and development purposes, running on Arc Testnet. x402 is a Linux Foundation project. Arc and USDC are provided by Circle; Arc has not been reviewed or approved by NYDFS. Content is informational only — not financial or legal advice. Users are responsible for their own compliance and risk management.
+        Live on Arc Testnet via Circle Gateway. Mainnet deployment pending Circle Cohort 2 audit completion. x402 is a Linux Foundation protocol; Arc and USDC are provided by Circle. Arc has not been reviewed or approved by NYDFS.
       </p>
     </footer>
   </div>
@@ -153,19 +177,27 @@
   <script type="module">
     import { BUNDLES, ENDPOINTS, CATEGORIES, MARKET_STATS, isLive } from './data.js';
 
-    // ── Live stats — fetched from /api/v1/health (free endpoint) ──
-    // Falls back gracefully if the API is down so the catalog still
-    // renders.
+    // ── Live data — pull 3 free endpoints in parallel ──
+    // Falls back gracefully if any one is down so the catalog still
+    // renders. Each helper returns null on failure (logged to console).
     const LIVE_API_BASE = `https://${'arc-agent-seven.vercel.app'}`;
-    async function loadLiveHealth() {
+    async function fetchOk(path) {
       try {
-        const r = await fetch(`${LIVE_API_BASE}/api/v1/health`, { cache: 'no-store' });
+        const r = await fetch(`${LIVE_API_BASE}${path}`, { cache: 'no-store' });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return await r.json();
       } catch (e) {
-        console.warn('[arc-agentic] /v1/health unreachable:', e.message);
+        console.warn('[arc-agentic]', path, 'unreachable:', e.message);
         return null;
       }
+    }
+    const loadLiveHealth   = () => fetchOk('/api/v1/health');
+    const loadAdminStats   = () => fetchOk('/api/v1/admin/stats');
+    const loadHealthProbe  = () => fetchOk('/api/v1/admin/endpoint-health');
+
+    function fmtUsdc(n) {
+      if (n === null || n === undefined || Number.isNaN(n)) return '—';
+      return '$' + Number(n).toFixed(n < 1 ? 4 : 2);
     }
 
     // Distinct services (by service name) for the Services tab + stat.
@@ -227,7 +259,8 @@
       }).join('');
     }
 
-    // Kick off the live fetch + wire st-live counter when it returns.
+    // Kick off all three loads in parallel — KPI cards + ribbon are
+    // independent of one another, so we don't block on the slowest.
     loadLiveHealth().then(health => {
       if (health) {
         document.getElementById('st-live').textContent = health.live_endpoint_count ?? health.live_endpoints?.length ?? '—';
@@ -235,6 +268,35 @@
       } else {
         document.getElementById('st-live').textContent = 'offline';
         document.getElementById('feat-grid').innerHTML = `<div class="feat-card"><div class="desc">Health endpoint unreachable. Try again in a moment.</div></div>`;
+      }
+    });
+
+    loadAdminStats().then(stats => {
+      if (!stats) {
+        ['st-rev', 'st-sett', 'st-payers'].forEach(id => {
+          document.getElementById(id).textContent = 'offline';
+        });
+        return;
+      }
+      document.getElementById('st-rev').textContent = fmtUsdc(stats.x402_revenue_usdc);
+      document.getElementById('st-sett').textContent = stats.settlement_count ?? '—';
+      document.getElementById('st-payers').textContent = stats.unique_payers ?? '—';
+      // Sub-line under x402 revenue: rotate based on activity state.
+      const subEl = document.getElementById('st-rev-sub');
+      if ((stats.settlement_count ?? 0) === 0) {
+        subEl.textContent = `wallet balance: ${fmtUsdc(stats.wallet_balance_usdc)} · awaiting first settlement`;
+      } else {
+        subEl.textContent = `last settlement ${stats.last_settlement ? new Date(stats.last_settlement).toLocaleString() : '—'}`;
+      }
+    });
+
+    loadHealthProbe().then(probe => {
+      if (!probe) return;
+      // Average latency across all live endpoints.
+      const lats = (probe.endpoints || []).map(e => e.latency_ms).filter(Number.isFinite);
+      if (lats.length > 0) {
+        const avg = Math.round(lats.reduce((s, x) => s + x, 0) / lats.length);
+        document.getElementById('r-lat').textContent = `${avg} ms (${probe.overall_status})`;
       }
     });
 

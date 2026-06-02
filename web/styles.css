@@ -24,7 +24,10 @@
   --ink-muted:   #9aa0aa;
   --ink-faint:   #5c626d;
 
-  --green:       #34d399;   /* "live"/verified accents only */
+  /* Palette is intentionally B+W + gold-for-money. `--green` is an
+     alias to ink so any legacy reference still resolves but renders
+     identically to a normal label — no second accent colour. */
+  --green:       var(--ink);
   --shadow:      0 1px 0 rgba(255,255,255,0.02), 0 8px 24px -12px rgba(0,0,0,0.6);
 }
 
@@ -45,7 +48,7 @@
   --ink-muted:   #5b616b;
   --ink-faint:   #9097a1;
 
-  --green:       #0f9d6b;
+  --green:       var(--ink);
   --shadow:      0 1px 0 rgba(0,0,0,0.02), 0 8px 24px -14px rgba(0,0,0,0.18);
 }
 
@@ -160,8 +163,32 @@ h1.hero-title .gold { color: var(--gold); }
 .statbar .stat:last-child { border-right: none; }
 .statbar .stat .l { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.08em; }
 .statbar .stat .v { font-family: var(--mono); font-size: 22px; font-weight: 700; margin-top: 6px; }
-.statbar .stat .v.gold { color: var(--gold); }
-.statbar .stat .v.green { color: var(--green); }
+.statbar .stat .v.gold { color: var(--gold); }      /* gold reserved for $-denominated values */
+.statbar .stat .v.green { color: var(--green); }    /* legacy alias — renders as ink */
+.statbar .stat .sub {
+  font-family: var(--sans); font-size: 11px; color: var(--ink-faint);
+  margin-top: 4px;
+}
+
+/* ─── Runtime ribbon (below statbar) ───────────────────────────── */
+.ribbon {
+  display: flex; flex-wrap: wrap; gap: 0; margin-top: 12px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--bg-soft); overflow: hidden;
+}
+.ribbon .r-item {
+  flex: 1; min-width: 200px; padding: 10px 16px;
+  border-right: 1px solid var(--line);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.ribbon .r-item:last-child { border-right: none; }
+.ribbon .r-l {
+  font-family: var(--mono); font-size: 10px; color: var(--ink-faint);
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+.ribbon .r-v {
+  font-family: var(--mono); font-size: 12.5px; color: var(--ink); font-weight: 600;
+}
 
 /* ─── Search bar ───────────────────────────────────────────────── */
 .searchbar {
@@ -271,9 +298,11 @@ h1.hero-title .gold { color: var(--gold); }
   text-transform: uppercase; letter-spacing: 0.05em;
   padding: 2px 7px; border-radius: 5px; white-space: nowrap;
 }
-.badge.cat-search    { color: var(--gold);  background: var(--gold-soft); border: 1px solid var(--gold-line); }
-.badge.cat-inference { color: var(--ink);   background: var(--bg-soft);   border: 1px solid var(--line-strong); }
-.badge.cat-data      { color: var(--ink-muted); background: var(--bg-soft); border: 1px solid var(--line); }
+/* Category badges differentiated by label only, not colour. Keeps the
+   2-tone aesthetic intact across the catalog list. */
+.badge.cat-search,
+.badge.cat-inference,
+.badge.cat-data { color: var(--ink-muted); background: var(--bg-soft); border: 1px solid var(--line); }
 .badge.live { color: var(--green); background: color-mix(in srgb, var(--green) 12%, transparent); border: 1px solid color-mix(in srgb, var(--green) 30%, transparent); }
 .badge.soon { color: var(--ink-faint); background: var(--bg-soft); border: 1px solid var(--line); }
 .badge.new  { color: var(--gold-bright); background: var(--gold-soft); border: 1px solid var(--gold-line); }
@@ -388,9 +417,9 @@ h1.hero-title .gold { color: var(--gold); }
   display: inline-flex; align-items: center; justify-content: center;
   border: 1px solid var(--line); border-radius: 9px;
 }
-.cat-card[data-cat="search"] .ic { color: var(--gold); border-color: var(--gold-line); }
-.cat-card[data-cat="inference"] .ic { color: var(--ink); border-color: var(--line-strong); }
-.cat-card[data-cat="data"] .ic { color: var(--green); border-color: var(--gold-line); }
+/* All 3 category icons render in ink — distinction comes from the
+   glyph + label, not colour. Keeps the homepage 2-tone. */
+.cat-card .ic { color: var(--ink); border-color: var(--line-strong); }
 .cat-card h3 { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; margin: 4px 0 0; }
 .cat-card .tag { font-size: 13px; color: var(--ink-muted); line-height: 1.5; }
 .cat-card .stat-row {
@@ -436,8 +465,8 @@ h1.hero-title .gold { color: var(--gold); }
 }
 .feat-card .method {
   font-family: var(--mono); font-size: 9.5px; font-weight: 700;
-  color: var(--green); padding: 2px 6px;
-  border: 1px solid var(--gold-line); border-radius: 4px;
+  color: var(--ink); padding: 2px 6px;
+  border: 1px solid var(--line-strong); border-radius: 4px;
   align-self: flex-start; letter-spacing: 0.05em;
 }
 .feat-card .method.free { color: var(--ink-muted); border-color: var(--line); }
