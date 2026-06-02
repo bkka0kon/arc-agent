@@ -3,10 +3,11 @@
 
 import { gatePayment } from "../../_lib/x402.js";
 import { withCors, corsPreflight } from "../../_lib/cors.js";
+import { PRICES } from "../../_lib/pricing.js";
 
 export const config = { runtime: "edge" };
 
-const PRICE = "0.001";
+const PRICE = PRICES.PRICE_TOKEN;
 const DESCRIPTION = "Real-time token price on Arc";
 
 // Token symbol → CoinGecko coin id. Extend as needed.

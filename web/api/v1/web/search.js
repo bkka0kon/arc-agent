@@ -10,11 +10,12 @@
 
 import { gatePayment } from "../../_lib/x402.js";
 import { withCors, corsPreflight } from "../../_lib/cors.js";
+import { PRICES } from "../../_lib/pricing.js";
 
 export const config = { runtime: "edge" };
 
-const PRICE = "0.003";
-const DESCRIPTION = "Web search (DuckDuckGo by default, Brave when CMC_API_KEY is set)";
+const PRICE = PRICES.WEB_SEARCH;
+const DESCRIPTION = "Web search (DuckDuckGo by default, Brave when BRAVE_SEARCH_KEY is set)";
 
 export default async function handler(req) {
   if (req.method === "OPTIONS") return corsPreflight();

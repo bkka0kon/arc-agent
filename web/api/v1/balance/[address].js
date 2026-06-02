@@ -4,10 +4,11 @@
 
 import { gatePayment } from "../../_lib/x402.js";
 import { withCors, corsPreflight } from "../../_lib/cors.js";
+import { PRICES } from "../../_lib/pricing.js";
 
 export const config = { runtime: "edge" };
 
-const PRICE = "0.0005";
+const PRICE = PRICES.BALANCE_ADDRESS;
 const DESCRIPTION = "Wallet balance on Arc (native + USDC ERC-20)";
 const ARC_RPC = process.env.ARC_RPC || "https://rpc.testnet.arc.network";
 const USDC_ADDR = "0x3600000000000000000000000000000000000000";

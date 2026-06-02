@@ -9,10 +9,11 @@
 
 import { gatePayment } from "../../../_lib/x402.js";
 import { withCors, corsPreflight } from "../../../_lib/cors.js";
+import { PRICES } from "../../../_lib/pricing.js";
 
 export const config = { runtime: "edge" };
 
-const PRICE = "0.002";
+const PRICE = PRICES.CONTRACT_SOURCE;
 const DESCRIPTION = "Verified contract source + ABI from ArcScan";
 const ARC_SCAN = "https://testnet.arcscan.app/api";
 const ADDR_RE = /^0x[a-fA-F0-9]{40}$/;

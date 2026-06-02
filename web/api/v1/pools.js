@@ -8,10 +8,11 @@
 
 import { gatePayment } from "../_lib/x402.js";
 import { withCors, corsPreflight } from "../_lib/cors.js";
+import { PRICES } from "../_lib/pricing.js";
 
 export const config = { runtime: "edge" };
 
-const PRICE = "0.002";
+const PRICE = PRICES.POOLS;
 const DESCRIPTION = "Yield pools across DeFi protocols";
 
 export default async function handler(req) {

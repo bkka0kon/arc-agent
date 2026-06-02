@@ -8,10 +8,11 @@
 
 import { gatePayment } from "../../_lib/x402.js";
 import { withCors, corsPreflight } from "../../_lib/cors.js";
+import { PRICES } from "../../_lib/pricing.js";
 
 export const config = { runtime: "edge" };
 
-const PRICE = "0.0005";
+const PRICE = PRICES.GAS_ESTIMATE;
 const DESCRIPTION = "Current gas price on Arc + USDC cost estimates for common ops";
 const ARC_RPC = process.env.ARC_RPC || "https://rpc.testnet.arc.network";
 

@@ -20,6 +20,7 @@
 //   are expensive — clients should treat freshness as ~1 minute.
 
 import { withCors, corsPreflight } from "../../_lib/cors.js";
+import { LIVE_ENDPOINTS } from "../../_lib/pricing.js";
 
 export const config = { runtime: "edge" };
 
@@ -57,7 +58,8 @@ function hexToBigInt(hex) {
   return BigInt(hex);
 }
 
-const LIVE_ENDPOINT_COUNT = 9; // keep in sync with health.js
+// Live endpoint count read from the same source as /v1/health — adding
+// a row in _lib/pricing.js updates both the manifest and this number.
 
 export default async function handler(req) {
   if (req.method === "OPTIONS") return corsPreflight();
@@ -165,7 +167,7 @@ export default async function handler(req) {
         scanned_blocks: Number(scannedBlocks),
         chunk_size_blocks: Number(CHUNK_BLOCKS),
       },
-      live_endpoints: LIVE_ENDPOINT_COUNT,
+      live_endpoints: LIVE_ENDPOINTS.length,
       top_payers: topPayers,
       ts: new Date().toISOString(),
       note: scanComplete

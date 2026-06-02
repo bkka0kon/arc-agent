@@ -8,10 +8,11 @@
 
 import { gatePayment } from "../../_lib/x402.js";
 import { withCors, corsPreflight } from "../../_lib/cors.js";
+import { PRICES } from "../../_lib/pricing.js";
 
 export const config = { runtime: "edge" };
 
-const PRICE = "0.001";
+const PRICE = PRICES.SENTIMENT;
 const DESCRIPTION = "Crypto Fear & Greed Index (today + 6-day window)";
 
 export default async function handler(req) {

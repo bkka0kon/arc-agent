@@ -19,10 +19,11 @@ Every file under `web/api/v1/` follows the same skeleton:
 // web/api/v1/example.js
 import { gatePayment } from "../_lib/x402.js";
 import { withCors, corsPreflight } from "../_lib/cors.js";
+import { PRICES } from "../_lib/pricing.js";
 
 export const config = { runtime: "edge" };
 
-const PRICE = "0.001";                       // USD, string for parseFloat
+const PRICE = PRICES.EXAMPLE;                // see _lib/pricing.js
 const DESCRIPTION = "What your service does";
 
 export default async function handler(req) {
@@ -108,18 +109,37 @@ function jsonResponse(body, status) { /* same as template */ }
 function wrap(res) { /* same as template */ }
 ```
 
-### 3. Register it on the homepage
+### 3. Register the price + manifest entry
 
-Two files, four lines total:
+One file. `_lib/pricing.js` is the single source of truth — both the
+402 quote your handler emits AND the `/api/v1/health` manifest read
+from it, so they can never drift apart.
 
 ```js
-// web/data.js — add path to the LIVE_PATHS set
+// web/api/_lib/pricing.js — add 2 lines
+
+export const PRICES = {
+  // … existing keys …
+  WEATHER: price("PRICE_WEATHER", "0.002"),     //  ← new
+};
+
+export const LIVE_ENDPOINTS = [
+  // … existing rows …
+  { path: "/v1/weather/{city}", try_url: "/v1/weather/Hanoi",
+    method: "GET", price_usdc: Number(PRICES.WEATHER),
+    desc: "Current weather for any city." },           //  ← new
+];
+```
+
+And update `web/data.js` ENDPOINTS for the catalog UI:
+
+```js
+// web/data.js — add ENDPOINTS row + LIVE_PATHS entry
 export const LIVE_PATHS = new Set([
-  // … existing paths …
+  // …
   "/v1/weather/:city",
 ]);
 
-// web/data.js — add an ENDPOINTS row so it appears in the catalog
 export const ENDPOINTS = [
   // …
   { category: "data", icon: "☂", service: "Weather",
@@ -130,16 +150,21 @@ export const ENDPOINTS = [
 ];
 ```
 
-```js
-// web/api/v1/health.js — add the live_endpoints entry so the
-// /api/v1/health catalog stays accurate
-const liveEndpoints = [
-  // …
-  { path: "/v1/weather/{city}",  try_url: "/v1/weather/Hanoi",
-    method: "GET", price_usdc: 0.002,
-    desc: "Current weather for any city." },
-];
+### Pricing without redeploy
+
+Once an endpoint ships with `PRICES.<KEY>`, you can tune its price
+purely by setting the matching env var on Vercel — no code change,
+no redeploy needed:
+
 ```
+PRICE_WEATHER=0.0015
+```
+
+Vercel picks this up on the next cold start (usually within minutes)
+or trigger a re-deploy with an empty commit to force immediate
+refresh. The convention is `PRICE_<UPPER_KEY>` where `<UPPER_KEY>`
+is the key name in `pricing.js`. Values are USD strings; non-positive
+or unparseable values log a warning and fall back to the default.
 
 ### 4. Deploy
 
