@@ -48,6 +48,12 @@ export const PRICES = {
   CONTRACT_SOURCE:   price("PRICE_CONTRACT_SOURCE",  "0.002"),
   SENTIMENT:         price("PRICE_SENTIMENT",        "0.001"),
   WEB_SEARCH:        price("PRICE_WEB_SEARCH",       "0.003"),
+  // ── Phase 8: DeFi-vertical composable services. Higher price tiers
+  // because each composes 3-5 upstream sources or wraps an LLM —
+  // moat is the composition, not the raw data.
+  TOKEN_SECURITY:    price("PRICE_TOKEN_SECURITY",   "0.010"),
+  DEX_ARB_SCAN:      price("PRICE_DEX_ARB_SCAN",     "0.003"),
+  LLM_DEFI_REASON:   price("PRICE_LLM_DEFI_REASON",  "0.015"),
 };
 
 /** Health-manifest-shaped catalog. Imported by /v1/health so prices
@@ -64,4 +70,7 @@ export const LIVE_ENDPOINTS = [
   { path: "/v1/contract/source/{address}",  try_url: "/v1/contract/source/0x3600000000000000000000000000000000000000",                  method: "GET", price_usdc: Number(PRICES.CONTRACT_SOURCE),  desc: "Verified Solidity source + ABI (ArcScan)." },
   { path: "/v1/sentiment/fear-greed",       try_url: "/v1/sentiment/fear-greed",                                                       method: "GET", price_usdc: Number(PRICES.SENTIMENT),        desc: "Crypto Fear & Greed Index + 7-day trend." },
   { path: "/v1/web/search",                 try_url: "/v1/web/search?q=bitcoin+halving",                                               method: "GET", price_usdc: Number(PRICES.WEB_SEARCH),       desc: "Web search (DuckDuckGo by default; Brave when key is set)." },
+  { path: "/v1/token/security/{address}",   try_url: "/v1/token/security/0x3600000000000000000000000000000000000000",                  method: "GET", price_usdc: Number(PRICES.TOKEN_SECURITY),   desc: "Composite token risk score (ArcScan + RPC + GoPlus). 0-100 + flags." },
+  { path: "/v1/dex/arb-scan",               try_url: "/v1/dex/arb-scan?base=ETH&quote=USD&size=1000",                                  method: "GET", price_usdc: Number(PRICES.DEX_ARB_SCAN),     desc: "Multi-DEX spot + arb spread + profit estimate for a token pair." },
+  { path: "/v1/llm/defi-reason",            try_url: "/v1/llm/defi-reason?q=Should+I+swap+USDC+to+EURC+now%3F",                        method: "GET", price_usdc: Number(PRICES.LLM_DEFI_REASON),  desc: "GPT-4o-mini reasoning with DeFi-aware system prompt." },
 ];
