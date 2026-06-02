@@ -47,13 +47,23 @@ function usdToAtomic(usdStr) {
   return String(Math.round(n * 1_000_000));
 }
 
-/** Single PaymentRequirements object in x402 v2 shape. */
+/** Single PaymentRequirements object in x402 v2 shape.
+ *
+ *  Carries both `maxAmountRequired` (x402 v2 wire-format field name
+ *  for the 402 response) AND `amount` (the field Circle Gateway's
+ *  `/v1/x402/verify` endpoint actually requires — verified by a
+ *  live 400: `paymentRequirements.amount: Required`).
+ *
+ *  Sending both is harmless: same value, clients that understand
+ *  only one of the two names just pick whichever they expect. */
 function buildRequirement(resourceUrl, priceUsd, description) {
   const seller = sellerOrNull() || "0x0000000000000000000000000000000000000000";
+  const amount = usdToAtomic(priceUsd);
   return {
     scheme: SCHEME,
     network: NETWORK,
-    maxAmountRequired: usdToAtomic(priceUsd),
+    maxAmountRequired: amount,
+    amount,
     resource: resourceUrl,
     description,
     mimeType: "application/json",

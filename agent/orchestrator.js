@@ -116,7 +116,10 @@ async function payFetch(url, { method = "GET", maxPay, body } = {}) {
       return parsed.data ?? parsed.response ?? parsed.body ?? parsed;
     } catch (err) {
       const detail = err.stderr || err.stdout || err.message;
-      console.log(`  [pay] ${url} failed — ${String(detail).slice(0, 200)}`);
+      // Show the full server response — 200-char cap used to hide
+      // the actual gateway_verify reason (HTTP code + Gateway body)
+      // that we need to debug.
+      console.log(`  [pay] ${url} failed —\n${String(detail).split("\n").map(l => "      " + l).join("\n")}`);
       return null;
     }
   }
