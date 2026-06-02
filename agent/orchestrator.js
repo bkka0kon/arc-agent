@@ -32,22 +32,24 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 
 // ─── Service base URLs ────────────────────────────────────────
-// For local testing, all default to seller-api on localhost:3000.
-// In production, point each to the real seller's domain.
+// Default points at the live Vercel deployment so the orchestrator
+// works out-of-the-box. Override per-service via SVC_* env vars when
+// individual endpoints move to dedicated hosts.
+const LIVE_BASE = (process.env.AGENT_HOST || "https://arc-agent-seven.vercel.app") + "/api";
 const BASE = {
   // Data domain (price feeds, sentiment, on-chain flows)
-  price:     process.env.SVC_PRICE     || "http://localhost:3000",
-  dex:       process.env.SVC_DEX       || "http://localhost:3000",
-  sentiment: process.env.SVC_SENTIMENT || "http://localhost:3000",
-  news:      process.env.SVC_NEWS      || "http://localhost:3000",
-  flow:      process.env.SVC_FLOW      || "http://localhost:3000",
-  chain:     process.env.SVC_CHAIN     || "http://localhost:3000",
-  risk:      process.env.SVC_RISK      || "http://localhost:3000",
-  defi:      process.env.SVC_DEFI      || "http://localhost:3000",
+  price:     process.env.SVC_PRICE     || LIVE_BASE,
+  dex:       process.env.SVC_DEX       || LIVE_BASE,
+  sentiment: process.env.SVC_SENTIMENT || LIVE_BASE,
+  news:      process.env.SVC_NEWS      || LIVE_BASE,
+  flow:      process.env.SVC_FLOW      || LIVE_BASE,
+  chain:     process.env.SVC_CHAIN     || LIVE_BASE,
+  risk:      process.env.SVC_RISK      || LIVE_BASE,
+  defi:      process.env.SVC_DEFI      || LIVE_BASE,
   // Search domain
-  search:    process.env.SVC_SEARCH    || "http://localhost:3000",
+  search:    process.env.SVC_SEARCH    || LIVE_BASE,
   // Inference domain (LLM endpoints)
-  infer:     process.env.SVC_INFER     || "http://localhost:3000",
+  infer:     process.env.SVC_INFER     || LIVE_BASE,
 };
 
 // ─── payFetch: pay-aware HTTP client ──────────────────────────
@@ -105,7 +107,11 @@ async function payFetch(url, { method = "GET", maxPay, body } = {}) {
     ];
     if (maxPay) cliArgs.push("--max-amount", String(maxPay));
     try {
-      const { stdout } = await execFileAsync("circle", cliArgs, { timeout: 60_000 });
+      // shell:true so Windows resolves circle.cmd (the npm-installed
+      // batch shim) via PATH. Without it, child_process only finds
+      // bare .exe extensions and dies with ENOENT — even when the
+      // CLI works perfectly from the cmd prompt.
+      const { stdout } = await execFileAsync("circle", cliArgs, { timeout: 60_000, shell: true });
       const parsed = JSON.parse(stdout);
       return parsed.data ?? parsed.response ?? parsed.body ?? parsed;
     } catch (err) {
@@ -145,6 +151,88 @@ function exitUsage(extra = "") {
 // receives an optional CLI argument (token, address, query…).
 
 const BUNDLES = {
+  // ─────────── LIVE-ONLY BUNDLES (call only deployed endpoints) ───────────
+  //
+  // Every endpoint these bundles invoke is currently 402-gated and live
+  // on https://arc-agent-seven.vercel.app/api/. Use these to prove the
+  // full marketplace round-trip end-to-end without depending on services
+  // that aren't deployed yet.
+
+  "live-pulse": {
+    name: "Live Pulse",
+    argHint: "token symbol (ETH, BTC, USDC…)",
+    async run(arg) {
+      const t = (arg || "ETH").toUpperCase();
+      console.log(`\n▶ Running "Live Pulse" for: ${t}`);
+      // 4 live paid endpoints, fully parallel. Total spend ≈ $0.007.
+      const [price, sentiment, gas, news] = await Promise.all([
+        payFetch(`${BASE.price}/v1/price/${t}`,                                      { maxPay: "0.001" }),
+        payFetch(`${BASE.sentiment}/v1/sentiment/fear-greed`,                        { maxPay: "0.001" }),
+        payFetch(`${BASE.chain}/v1/gas/estimate`,                                    { maxPay: "0.0005" }),
+        payFetch(`${BASE.search}/v1/web/search?q=${encodeURIComponent(t + " price news")}`, { maxPay: "0.003" }),
+      ]);
+      return {
+        token: t,
+        summary: price?.price != null
+          ? `${t} is at $${price.price} (${price.change24h?.toFixed?.(2) ?? "?"}% 24h) · market is ${sentiment?.classification || "?"} · 1 native_transfer costs ~$${gas?.estimates?.native_transfer?.cost_usdc_formatted || "?"}`
+          : `Could not fetch price for ${t}.`,
+        price, sentiment, gas, news,
+        _meta: { bundle: "Live Pulse", ...summarize([price, sentiment, gas, news]), pay_mode: PAY_MODE },
+      };
+    },
+  },
+
+  "live-defi-scout": {
+    name: "Live DeFi Scout",
+    argHint: "token symbol to filter pools (USDC, ETH…)",
+    async run(arg) {
+      const t = (arg || "USDC").toUpperCase();
+      console.log(`\n▶ Running "Live DeFi Scout" for: ${t}`);
+      // 1 paid call to /v1/pools + 1 per top-3 TVL lookup = 4 calls total ≈ $0.005.
+      const pools = await payFetch(`${BASE.defi}/v1/pools?token=${t}&limit=3`, { maxPay: "0.002" });
+      const top = (pools?.pools || []).slice(0, 3);
+      const tvls = await Promise.all(
+        top.map(p => payFetch(`${BASE.defi}/v1/tvl/${p.protocol}`, { maxPay: "0.001" })),
+      );
+      return {
+        token: t,
+        opportunities: top.map((p, i) => ({
+          protocol: p.protocol,
+          symbol:   p.symbol,
+          chain:    p.chain,
+          apy:      p.apy,
+          tvl_in_pool_usd:     p.tvl_usd,
+          tvl_in_protocol_usd: tvls[i]?.tvl_usd ?? "n/a",
+        })),
+        _meta: { bundle: "Live DeFi Scout", ...summarize([pools, ...tvls]), pay_mode: PAY_MODE },
+      };
+    },
+  },
+
+  "live-contract-audit": {
+    name: "Live Contract Audit (lite)",
+    argHint: "0x… contract address",
+    async run(arg) {
+      const addr = arg || "0x3600000000000000000000000000000000000000";
+      console.log(`\n▶ Running "Live Contract Audit" for: ${addr}`);
+      // 2 paid calls: pull source/ABI + web-search for known audits.
+      const [source, audits] = await Promise.all([
+        payFetch(`${BASE.infer}/v1/contract/source/${addr}`,                                                  { maxPay: "0.002" }),
+        payFetch(`${BASE.search}/v1/web/search?q=${encodeURIComponent(addr + " contract audit security")}`,    { maxPay: "0.003" }),
+      ]);
+      return {
+        address: addr,
+        contract_name:    source?.contract_name ?? "n/a",
+        compiler_version: source?.compiler_version ?? "n/a",
+        proxy:            source?.proxy ?? false,
+        license:          source?.license ?? "n/a",
+        source_length:    source?.source_length ?? 0,
+        audit_search:     audits?.results?.slice?.(0, 5) || audits?.abstract || "no results",
+        _meta: { bundle: "Live Contract Audit", ...summarize([source, audits]), pay_mode: PAY_MODE },
+      };
+    },
+  },
+
   // ─────────── DATA ───────────
   "token-pulse": {
     name: "Token Pulse",
@@ -370,7 +458,11 @@ const BUNDLES = {
 };
 
 // ─── CLI entry ────────────────────────────────────────────────
-const isMain = import.meta.url === `file://${process.argv[1]}`;
+// On Windows process.argv[1] uses backslashes (D:\…\orchestrator.js)
+// while import.meta.url is forward-slashed (file:///D:/…). Pass argv[1]
+// through pathToFileURL to normalise.
+import { pathToFileURL } from "node:url";
+const isMain = import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isMain) {
   const bundleId = process.argv[2];
   const arg = process.argv[3];
