@@ -99,8 +99,14 @@ async function payFetch(url, { method = "GET", maxPay, body } = {}) {
         `for paid POSTs use the x402 SDK.`,
       );
     }
+    // shell:true on Windows runs through cmd.exe, which treats `&` as
+    // a command separator — `?token=USDC&limit=3` would get parsed as
+    // two commands. Quote the URL when it contains shell-special chars
+    // so cmd passes it through verbatim.
+    const isWin = process.platform === "win32";
+    const safeUrl = isWin && /[&|<>^()%!"]/.test(url) ? `"${url}"` : url;
     const cliArgs = [
-      "services", "pay", url,
+      "services", "pay", safeUrl,
       "--address", agentAddr,
       "--chain", process.env.CHAIN || "ARC-TESTNET",
       "--output", "json",
