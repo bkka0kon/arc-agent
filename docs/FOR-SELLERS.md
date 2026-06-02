@@ -150,6 +150,30 @@ export const ENDPOINTS = [
 ];
 ```
 
+### Wiring optional API keys (Brave Search example)
+
+`/v1/web/search` supports two providers via env switch:
+
+| Env var unset | Falls back to DuckDuckGo Instant Answer (limited but free, no key) |
+| `BRAVE_SEARCH_KEY=…` set | Switches to Brave Search ranked web results (2 000 free queries/month) |
+
+To wire Brave:
+
+1. Sign up at https://api.search.brave.com — free tier no card required
+2. Copy your subscription token
+3. Set in Vercel: Project → Settings → Environment Variables → `BRAVE_SEARCH_KEY` = the token, Production scope
+4. Trigger a redeploy (Vercel re-pulls env on cold start; empty-commit push is the fastest force)
+
+Verify:
+
+```
+curl "https://arc-agent-seven.vercel.app/api/v1/web/search?q=ethereum+staking"
+```
+
+If you see `"provider": "brave"` in the response (after paying), the key is active. If `"provider": "duckduckgo_instant"`, env didn't load yet.
+
+The same pattern applies to any seller endpoint that wraps a keyed upstream: keep the key in Vercel env, branch in the handler, leave a free fallback path so the endpoint never bricks when the key is unset.
+
 ### Pricing without redeploy
 
 Once an endpoint ships with `PRICES.<KEY>`, you can tune its price

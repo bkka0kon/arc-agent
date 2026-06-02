@@ -103,69 +103,72 @@ function decodePaymentHeader(sig) {
   }
 }
 
-/**
- * Verify + settle a payment via Circle Gateway.
- * Returns { ok: true, payment: {...} } on success,
- *      or { ok: false, reason: string }   on any failure.
- */
-export async function verifyAndSettle(sig, resourceUrl, priceUsd, description) {
-  const seller = sellerOrNull();
-  if (!seller) {
-    return { ok: false, reason: "server_misconfigured: SELLER_WALLET_ADDRESS not set in Vercel env" };
-  }
-
-  const paymentPayload = decodePaymentHeader(sig);
-  if (!paymentPayload) {
-    return { ok: false, reason: "invalid_signature_format" };
-  }
-
-  const paymentRequirements = buildRequirement(resourceUrl, priceUsd, description);
-  const requestBody = JSON.stringify({
+/** Build the JSON body that both /verify and /settle consume. */
+function buildGatewayBody(paymentPayload, paymentRequirements) {
+  return JSON.stringify({
     x402Version: X402_VERSION,
     paymentPayload,
     paymentRequirements,
   });
+}
 
-  // VERIFY
-  let verifyRes;
+/** Step 1 of the dance: ask Gateway whether a signature is valid for
+ *  this resource + amount. Does NOT commit funds. Safe to call before
+ *  the seller's upstream work — if upstream then fails, no charge. */
+export async function verifyOnly(sig, resourceUrl, priceUsd, description) {
+  const seller = sellerOrNull();
+  if (!seller) return { ok: false, reason: "server_misconfigured: SELLER_WALLET_ADDRESS not set" };
+
+  const paymentPayload = decodePaymentHeader(sig);
+  if (!paymentPayload) return { ok: false, reason: "invalid_signature_format" };
+
+  const paymentRequirements = buildRequirement(resourceUrl, priceUsd, description);
+  const body = buildGatewayBody(paymentPayload, paymentRequirements);
+
+  let res;
   try {
-    verifyRes = await fetch(`${GATEWAY_URL}/v1/x402/verify`, {
+    res = await fetch(`${GATEWAY_URL}/v1/x402/verify`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: requestBody,
+      body,
     });
   } catch (e) {
     return { ok: false, reason: `gateway_unreachable: ${e.message}` };
   }
-  if (!verifyRes.ok) {
-    const text = await verifyRes.text().catch(() => "");
-    return { ok: false, reason: `gateway_verify_${verifyRes.status}: ${text.slice(0, 200)}` };
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    return { ok: false, reason: `gateway_verify_${res.status}: ${text.slice(0, 200)}` };
   }
-  const verified = await verifyRes.json().catch(() => ({}));
+  const verified = await res.json().catch(() => ({}));
   if (!verified.isValid) {
     return { ok: false, reason: `verify_failed: ${verified.invalidReason || "unknown"}` };
   }
+  // Pass the verified payload through so settleOnly doesn't have to
+  // re-decode the header.
+  return { ok: true, paymentPayload, paymentRequirements };
+}
 
-  // SETTLE
-  let settleRes;
+/** Step 2: commit funds with Gateway. Only call after upstream succeeded. */
+export async function settleOnly(paymentPayload, paymentRequirements) {
+  const body = buildGatewayBody(paymentPayload, paymentRequirements);
+  let res;
   try {
-    settleRes = await fetch(`${GATEWAY_URL}/v1/x402/settle`, {
+    res = await fetch(`${GATEWAY_URL}/v1/x402/settle`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: requestBody,
+      body,
     });
   } catch (e) {
     return { ok: false, reason: `gateway_unreachable: ${e.message}` };
   }
-  if (!settleRes.ok) {
-    const text = await settleRes.text().catch(() => "");
-    return { ok: false, reason: `gateway_settle_${settleRes.status}: ${text.slice(0, 200)}` };
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    return { ok: false, reason: `gateway_settle_${res.status}: ${text.slice(0, 200)}` };
   }
-  const settled = await settleRes.json().catch(() => ({}));
+  const settled = await res.json().catch(() => ({}));
   if (!settled.success) {
     return { ok: false, reason: `settle_failed: ${settled.errorReason || "unknown"}` };
   }
-
   return {
     ok: true,
     payment: {
@@ -174,6 +177,17 @@ export async function verifyAndSettle(sig, resourceUrl, priceUsd, description) {
       network: settled.network,
     },
   };
+}
+
+/**
+ * Legacy single-step path (verify + settle in one shot). Kept for
+ * back-compat with the old gatePayment flow — new endpoints should
+ * prefer gateAndRun() so upstream failures don't charge the buyer.
+ */
+export async function verifyAndSettle(sig, resourceUrl, priceUsd, description) {
+  const verified = await verifyOnly(sig, resourceUrl, priceUsd, description);
+  if (!verified.ok) return verified;
+  return settleOnly(verified.paymentPayload, verified.paymentRequirements);
 }
 
 /** Convenience: full handler wrapping — call from inside a Vercel function. */
@@ -209,4 +223,92 @@ export async function gatePayment(req, priceUsd, description) {
   }
 
   return { ok: true, payment: settled.payment, url };
+}
+
+/**
+ * SAFE x402 wrapper: verify-then-run-then-settle. Buyer is NOT
+ * charged if the seller's runHandler throws or returns a Response
+ * (presumed to be a 4xx/5xx). Settle only commits AFTER the seller's
+ * upstream work completed successfully — the right semantics for any
+ * endpoint that proxies a third-party API.
+ *
+ *   return gateAndRun(req, PRICES.MY_KEY, "what I sell", async ({ url }) => {
+ *     // ... do upstream work ...
+ *     return { my: "data" };               // 200 OK + auto-attached _paid
+ *   });
+ *
+ * Handler conventions
+ *   • throw                  → 502 returned, NO settlement
+ *   • return Response        → that response is returned as-is, NO settlement
+ *                              (use for explicit 4xx like "invalid input")
+ *   • return plain object    → wrapped as 200 JSON, _paid receipt merged in,
+ *                              settlement committed
+ *
+ * Failure mode: if settle itself fails after a successful upstream, the
+ * response still returns 200 with _paid.warning so the buyer at least
+ * gets the data they paid signature for. Seller eats the rare cost.
+ */
+export async function gateAndRun(req, priceUsd, description, runHandler) {
+  const url = new URL(req.url);
+  const resourceUrl = `${url.protocol}//${url.host}${url.pathname}`;
+  const sig = req.headers.get("payment-signature") || req.headers.get("x-payment");
+
+  if (!sig) {
+    return new Response(
+      JSON.stringify(paymentRequiredBody(resourceUrl, priceUsd, description)),
+      { status: 402, headers: corsJsonHeaders() },
+    );
+  }
+
+  // 1. Verify signature with Gateway (no commit yet).
+  const verified = await verifyOnly(sig, resourceUrl, priceUsd, description);
+  if (!verified.ok) {
+    return new Response(
+      JSON.stringify({
+        error: "payment_invalid",
+        reason: verified.reason,
+        retry_with: paymentRequiredBody(resourceUrl, priceUsd, description),
+      }),
+      { status: 402, headers: corsJsonHeaders() },
+    );
+  }
+
+  // 2. Run the seller's work. Any throw / Response bails BEFORE settle.
+  let handlerResult;
+  try {
+    handlerResult = await runHandler({ url, resourceUrl });
+  } catch (err) {
+    return new Response(
+      JSON.stringify({
+        error: "upstream_failed",
+        reason: err?.message || String(err),
+        note: "Payment NOT settled — buyer was not charged.",
+      }),
+      { status: 502, headers: corsJsonHeaders() },
+    );
+  }
+  if (handlerResult instanceof Response) {
+    // Handler returned its own response (e.g. 400 invalid input).
+    // Don't settle — buyer keeps their money.
+    return handlerResult;
+  }
+
+  // 3. Upstream succeeded — commit payment.
+  const settled = await settleOnly(verified.paymentPayload, verified.paymentRequirements);
+  const paid = settled.ok
+    ? settled.payment
+    : { warning: "settle_failed", reason: settled.reason };
+
+  return new Response(
+    JSON.stringify({ ...handlerResult, _paid: paid }),
+    { status: 200, headers: corsJsonHeaders() },
+  );
+}
+
+function corsJsonHeaders() {
+  return {
+    "content-type": "application/json",
+    "access-control-allow-origin": "*",
+    "access-control-expose-headers": "payment-required",
+  };
 }

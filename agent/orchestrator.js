@@ -249,6 +249,53 @@ const BUNDLES = {
     },
   },
 
+  "agent-dashboard": {
+    name: "Agent Dashboard (composed of 3 bundles)",
+    argHint: "token symbol (ETH, USDC…) — used as input for all 3 sub-bundles",
+    async run(arg) {
+      const t = (arg || "ETH").toUpperCase();
+      console.log(`\n▶ Running "Agent Dashboard" composing 3 bundles for: ${t}`);
+      // Compose three live bundles in parallel. Each one's `_meta.pay_mode`
+      // is preserved so a downstream consumer can audit which call paid.
+      // Total cost ≈ $0.017 USDC for the full composition (4 + 4 + 2 calls
+      // when defi-scout returns 3 top pools).
+      const [pulse, scout, audit] = await Promise.all([
+        BUNDLES["live-pulse"].run(t),
+        BUNDLES["live-defi-scout"].run(t),
+        // Pick a stable example contract for the audit slice — USDC on Arc.
+        BUNDLES["live-contract-audit"].run("0x3600000000000000000000000000000000000000"),
+      ]);
+
+      // Synthesise a 1-line briefing line aggregating signal from all 3.
+      const fearLevel = pulse?.sentiment?.classification ?? "unknown";
+      const price = pulse?.price?.price;
+      const topPool = scout?.opportunities?.[0];
+      const headline =
+        price != null && topPool
+          ? `${t} $${price.toFixed(2)} · ${fearLevel} · best yield: ${topPool.protocol} ${topPool.symbol} ${topPool.apy?.toFixed?.(1) ?? "?"}% APY`
+          : `Partial data for ${t}.`;
+
+      const callsTotal =
+        (pulse?._meta?.services_called ?? 0) +
+        (scout?._meta?.services_called ?? 0) +
+        (audit?._meta?.services_called ?? 0);
+
+      return {
+        token: t,
+        headline,
+        pulse,
+        scout,
+        audit,
+        _meta: {
+          bundle: "Agent Dashboard",
+          composed_of: ["live-pulse", "live-defi-scout", "live-contract-audit"],
+          total_calls_across_bundles: callsTotal,
+          pay_mode: PAY_MODE,
+        },
+      };
+    },
+  },
+
   // ─────────── DATA ───────────
   "token-pulse": {
     name: "Token Pulse",
@@ -476,9 +523,12 @@ const BUNDLES = {
 // ─── CLI entry ────────────────────────────────────────────────
 // On Windows process.argv[1] uses backslashes (D:\…\orchestrator.js)
 // while import.meta.url is forward-slashed (file:///D:/…). Pass argv[1]
-// through pathToFileURL to normalise.
+// through pathToFileURL to normalise. argv[1] is undefined when this
+// module is imported via `node -e "import(…)"` — guard against that.
 import { pathToFileURL } from "node:url";
-const isMain = import.meta.url === pathToFileURL(process.argv[1]).href;
+const isMain = process.argv[1]
+  ? import.meta.url === pathToFileURL(process.argv[1]).href
+  : false;
 if (isMain) {
   const bundleId = process.argv[2];
   const arg = process.argv[3];

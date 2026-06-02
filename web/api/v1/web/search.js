@@ -1,14 +1,9 @@
-// GET /api/v1/web/search?q=… — $0.003 USDC via x402
-// Data source: DuckDuckGo Instant Answer API (no key required) by default,
-// or Brave Search API when BRAVE_SEARCH_KEY env var is set (free tier
+// GET /api/v1/web/search?q=… — $0.003 USDC via x402 (settled after upstream)
+// Data source: DuckDuckGo Instant Answer (no key required) by default,
+// or Brave Search API when BRAVE_SEARCH_KEY env is set (free tier
 // 2k queries/month at https://api.search.brave.com).
-//
-// DuckDuckGo returns "instant answer" objects (definitions, abstract,
-// related topics) — not a full web crawl. Brave returns ranked web
-// results. We expose a normalised shape so agents can swap providers
-// without changing code.
 
-import { gatePayment } from "../../_lib/x402.js";
+import { gateAndRun } from "../../_lib/x402.js";
 import { withCors, corsPreflight } from "../../_lib/cors.js";
 import { PRICES } from "../../_lib/pricing.js";
 
@@ -20,31 +15,21 @@ const DESCRIPTION = "Web search (DuckDuckGo by default, Brave when BRAVE_SEARCH_
 export default async function handler(req) {
   if (req.method === "OPTIONS") return corsPreflight();
 
-  const gate = await gatePayment(req, PRICE, DESCRIPTION);
-  if (!gate.ok) return wrap(gate.response);
+  return gateAndRun(req, PRICE, DESCRIPTION, async ({ url }) => {
+    const q = (url.searchParams.get("q") || "").trim();
+    if (!q) return jsonResponse({ error: "missing_query", hint: "?q=bitcoin+price" }, 400);
 
-  const q = (gate.url.searchParams.get("q") || "").trim();
-  if (!q) {
-    return jsonResponse({ error: "missing_query", hint: "?q=bitcoin+price" }, 400);
-  }
-
-  const braveKey = process.env.BRAVE_SEARCH_KEY;
-  try {
-    if (braveKey) {
-      return await searchBrave(q, braveKey, gate);
-    }
-    return await searchDuckDuckGo(q, gate);
-  } catch (e) {
-    return jsonResponse({ error: "upstream_failed", message: e.message }, 502);
-  }
+    const braveKey = process.env.BRAVE_SEARCH_KEY;
+    return braveKey ? searchBrave(q, braveKey) : searchDuckDuckGo(q);
+  });
 }
 
-async function searchBrave(q, key, gate) {
+async function searchBrave(q, key) {
   const r = await fetch(
     `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(q)}&count=8`,
     { headers: { accept: "application/json", "x-subscription-token": key } },
   );
-  if (!r.ok) throw new Error(`Brave HTTP ${r.status}`);
+  if (!r.ok) return jsonResponse({ error: "upstream_failed", source: "brave-search", status: r.status }, 502);
   const j = await r.json();
   const results = (j?.web?.results || []).map((r) => ({
     title: r.title,
@@ -52,50 +37,30 @@ async function searchBrave(q, key, gate) {
     snippet: r.description,
     age: r.age || null,
   }));
-  return jsonResponse({
-    query: q,
-    provider: "brave",
-    result_count: results.length,
-    results,
-    source: "brave-search",
-    ts: new Date().toISOString(),
-    _paid: gate.payment,
-  }, 200);
+  return {
+    query: q, provider: "brave", result_count: results.length, results,
+    source: "brave-search", ts: new Date().toISOString(),
+  };
 }
 
-async function searchDuckDuckGo(q, gate) {
+async function searchDuckDuckGo(q) {
   const r = await fetch(
     `https://api.duckduckgo.com/?q=${encodeURIComponent(q)}&format=json&no_html=1&skip_disambig=1`,
     { headers: { accept: "application/json", "user-agent": "arc-agentic-web-search/1.0" } },
   );
-  // DDG sometimes returns 202 with a valid body, sometimes returns
-  // an empty body for queries it can't instant-answer. Don't trust
-  // r.json() blindly — read text, parse manually with a clear error.
   const text = await r.text();
   if (!text || text.trim() === "") {
-    // Empty body = no instant answer available. Don't 502 — return
-    // a real (but empty) result so the caller knows the call worked.
-    return jsonResponse({
-      query: q,
-      provider: "duckduckgo_instant",
-      result_count: 0,
-      results: [],
+    return {
+      query: q, provider: "duckduckgo_instant", result_count: 0, results: [],
       note: "DuckDuckGo had no instant answer for this query. Set BRAVE_SEARCH_KEY env for ranked web results.",
-      source: "duckduckgo",
-      ts: new Date().toISOString(),
-      _paid: gate.payment,
-    }, 200);
+      source: "duckduckgo", ts: new Date().toISOString(),
+    };
   }
   let j;
-  try {
-    j = JSON.parse(text);
-  } catch {
-    // Genuinely bad upstream response — surface the first chunk so
-    // we don't lose debug info on a real outage.
+  try { j = JSON.parse(text); }
+  catch {
     return jsonResponse({
-      error: "upstream_bad_json",
-      source: "duckduckgo",
-      status: r.status,
+      error: "upstream_bad_json", source: "duckduckgo", status: r.status,
       preview: text.slice(0, 200),
     }, 502);
   }
@@ -109,9 +74,8 @@ async function searchDuckDuckGo(q, gate) {
       snippet: t.Text,
     }));
 
-  return jsonResponse({
-    query: q,
-    provider: "duckduckgo_instant",
+  return {
+    query: q, provider: "duckduckgo_instant",
     abstract: j.AbstractText || null,
     abstract_url: j.AbstractURL || null,
     definition: j.Definition || null,
@@ -124,19 +88,11 @@ async function searchDuckDuckGo(q, gate) {
     note: "DuckDuckGo Instant Answer is curated, not a full web crawl. Set BRAVE_SEARCH_KEY env var for ranked web results.",
     source: "duckduckgo",
     ts: new Date().toISOString(),
-    _paid: gate.payment,
-  }, 200);
+  };
 }
 
 function jsonResponse(body, status) {
   return new Response(JSON.stringify(body), {
     status, headers: withCors({ "content-type": "application/json" }),
   });
-}
-
-function wrap(res) {
-  const h = new Headers(res.headers);
-  h.set("access-control-allow-origin", "*");
-  h.set("access-control-expose-headers", "payment-required");
-  return new Response(res.body, { status: res.status, headers: h });
 }
