@@ -72,7 +72,7 @@ const c = {
 };
 
 console.log(c.bold("\nERC-8004 IdentityRegistry — registration calldata"));
-console.log(c.dim("─".repeat(70)));
+console.log(c.dim("-".repeat(70)));
 console.log("Wallet (msg.sender will own the NFT):  " + c.cyan(wallet));
 console.log("IdentityRegistry (proxy):              " + IDENTITY_REGISTRY);
 console.log("Implementation:                        0x7274e874ca62410a93bd8bf61c69d8045e399c02");

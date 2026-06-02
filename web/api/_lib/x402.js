@@ -1,3 +1,5 @@
+import { recordSettle } from "./tally.js";
+
 // ════════════════════════════════════════════════════════════════
 //  Shared x402 helper — talks Circle Gateway's REST API directly.
 //
@@ -298,6 +300,16 @@ export async function gateAndRun(req, priceUsd, description, runHandler) {
   const paid = settled.ok
     ? settled.payment
     : { warning: "settle_failed", reason: settled.reason };
+
+  // 4. Fire-and-forget: log to the off-chain tally so admin/stats can
+  // show this payment immediately, without waiting for Gateway to
+  // batch the on-chain settlement (can take minutes/hours).
+  if (settled.ok && settled.payment?.payer) {
+    const amountUsdc = Number(priceUsd);
+    // Don't await — response shouldn't block on KV write.
+    recordSettle({ payer: settled.payment.payer, amount_usdc: amountUsdc })
+      .catch((e) => console.warn("[x402] tally write failed", e?.message));
+  }
 
   return new Response(
     JSON.stringify({ ...handlerResult, _paid: paid }),

@@ -22,6 +22,7 @@
 import { withCors, corsPreflight } from "../../_lib/cors.js";
 import { LIVE_ENDPOINTS } from "../../_lib/pricing.js";
 import { isRegisteredAgents, IDENTITY_REGISTRY_ADDRESS } from "../../_lib/erc8004.js";
+import { getTally, isTallyEnabled } from "../../_lib/tally.js";
 
 export const config = { runtime: "edge" };
 
@@ -152,24 +153,85 @@ export default async function handler(req) {
       // that have published an on-chain identity get a verified mark.
       registered: regMap.get(address.toLowerCase()) || false,
     }));
-    let x402RevenueRaw = 0n;
-    for (const v of senderTotals.values()) x402RevenueRaw += v.paidRaw;
-    const x402RevenueUsdc = Number(x402RevenueRaw) / 10 ** USDC_DECIMALS;
+    let x402OnchainRaw = 0n;
+    for (const v of senderTotals.values()) x402OnchainRaw += v.paidRaw;
+    const x402OnchainUsdc = Number(x402OnchainRaw) / 10 ** USDC_DECIMALS;
+
+    // 6. Off-chain tally (KV-backed) — every successful settle is
+    // logged the moment Gateway acknowledges it, even before the
+    // on-chain batch lands. Lets the dashboard reflect activity
+    // instantly. No-op when KV env vars aren't set (graceful).
+    const tally = await getTally(10);
+
+    const offchainOnly = tally
+      ? Math.max(0, tally.total_revenue_usdc - x402OnchainUsdc)
+      : 0;
+    const offchainSettlementsOnly = tally
+      ? Math.max(0, tally.total_settlement_count - totalLogs)
+      : 0;
+
+    // Merge on-chain + off-chain top-payers into one ranking. Use a
+    // map so the same payer doesn't show up twice.
+    let mergedPayers = topPayers;
+    if (tally?.top_payers?.length) {
+      const byAddr = new Map(topPayers.map((p) => [p.address.toLowerCase(), { ...p }]));
+      for (const t of tally.top_payers) {
+        const lc = t.address.toLowerCase();
+        const cur = byAddr.get(lc);
+        if (cur) {
+          // Combine — paid_usdc + tally revenue, settlement_count likewise.
+          cur.paid_usdc += t.revenue_usdc;
+          cur.settlement_count += t.count;
+        } else {
+          byAddr.set(lc, {
+            address: t.address,
+            paid_usdc: t.revenue_usdc,
+            settlement_count: t.count,
+            registered: false, // back-fill if cheap; for now leave false
+          });
+        }
+      }
+      // Re-resolve registered for any new payers from tally only.
+      const newAddrs = [...byAddr.values()]
+        .filter((p) => !topPayers.find((tp) => tp.address.toLowerCase() === p.address.toLowerCase()))
+        .map((p) => p.address);
+      if (newAddrs.length > 0) {
+        const regs = await isRegisteredAgents(newAddrs);
+        for (const addr of newAddrs) {
+          const lc = addr.toLowerCase();
+          const p = byAddr.get(lc);
+          if (p) p.registered = regs.get(lc) || false;
+        }
+      }
+      mergedPayers = [...byAddr.values()].sort((a, b) => b.paid_usdc - a.paid_usdc).slice(0, 10);
+    }
 
     return jsonResponse({
       seller,
       network: "eip155:5042002",
-      // Total USDC currently in the seller wallet. May include funding
-      // sources outside x402 (faucet drips, manual transfers, etc.).
       wallet_balance_usdc: revenueUsdc,
       wallet_balance_usdc_formatted: revenueUsdc.toFixed(6),
-      // Revenue attributable to x402 settlements within the scanned
-      // window only. This is the number to brag about — it's literal
-      // agent → seller payments verified on-chain.
-      x402_revenue_usdc: x402RevenueUsdc,
-      x402_revenue_usdc_formatted: x402RevenueUsdc.toFixed(6),
-      settlement_count: totalLogs,
-      unique_payers: senderTotals.size,
+      // === Headline numbers (on-chain + off-chain pending merged) ===
+      // x402_revenue_usdc is now the SUM of confirmed on-chain
+      // settlements PLUS off-chain commits that Gateway accepted but
+      // hasn't batched yet — i.e. revenue the seller is owed.
+      x402_revenue_usdc: x402OnchainUsdc + offchainOnly,
+      x402_revenue_usdc_formatted: (x402OnchainUsdc + offchainOnly).toFixed(6),
+      settlement_count: totalLogs + offchainSettlementsOnly,
+      unique_payers: mergedPayers.length,
+      // === Breakdown for transparency ===
+      onchain: {
+        revenue_usdc: x402OnchainUsdc,
+        settlement_count: totalLogs,
+      },
+      offchain_pending: tally
+        ? {
+            revenue_usdc: offchainOnly,
+            settlement_count: offchainSettlementsOnly,
+            note: "Gateway-accepted intents not yet batched on-chain.",
+          }
+        : null,
+      tally_enabled: isTallyEnabled(),
       last_settlement: lastSettlementIso,
       scan: {
         chunks_attempted: chunksAttempted,
@@ -180,11 +242,11 @@ export default async function handler(req) {
       },
       live_endpoints: LIVE_ENDPOINTS.length,
       erc8004_identity_registry: IDENTITY_REGISTRY_ADDRESS,
-      top_payers: topPayers,
+      top_payers: mergedPayers,
       ts: new Date().toISOString(),
-      note: scanComplete
-        ? "Cached 60 s. Stats over the most recent ~17 h of Arc Testnet history. wallet_balance_usdc is the full balance (any funding source); x402_revenue_usdc is the subset from agent payments in the window."
-        : `Cached 60 s. ${chunksFailed}/${chunksAttempted} chunks failed (Arc RPC rate limit) — figures reflect successfully-scanned chunks only.`,
+      note: tally
+        ? "x402_revenue_usdc = on-chain confirmed + off-chain Gateway-accepted (pending batch). See `onchain` + `offchain_pending` for breakdown."
+        : "x402_revenue_usdc reflects on-chain settlements only — Vercel KV not configured for off-chain tally. See docs.",
     }, 200);
   } catch (err) {
     return jsonResponse({ error: "rpc_failed", message: err.message }, 502);
