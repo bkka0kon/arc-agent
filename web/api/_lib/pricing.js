@@ -55,6 +55,7 @@ export const PRICES = {
 export const LIVE_ENDPOINTS = [
   { path: "/v1/health",                     try_url: "/v1/health",                                                                     method: "GET", price_usdc: 0,                          desc: "Server status. Free." },
   { path: "/v1/admin/stats",                try_url: "/v1/admin/stats",                                                                method: "GET", price_usdc: 0,                          desc: "Marketplace observability — revenue / settlements / top payers. Free." },
+  { path: "/v1/admin/endpoint-health",      try_url: "/v1/admin/endpoint-health",                                                      method: "GET", price_usdc: 0,                          desc: "Active probe — per-endpoint HTTP status + latency. Free." },
   { path: "/v1/price/{token}",              try_url: "/v1/price/ETH",                                                                  method: "GET", price_usdc: Number(PRICES.PRICE_TOKEN),      desc: "Real-time token price (CoinGecko)." },
   { path: "/v1/pools",                      try_url: "/v1/pools?token=USDC&limit=5",                                                   method: "GET", price_usdc: Number(PRICES.POOLS),            desc: "Yield pools across DeFi (DeFiLlama)." },
   { path: "/v1/tvl/{protocol}",             try_url: "/v1/tvl/aave-v3",                                                                method: "GET", price_usdc: Number(PRICES.TVL_PROTOCOL),     desc: "TVL for a protocol (DeFiLlama)." },
