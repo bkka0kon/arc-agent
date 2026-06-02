@@ -113,7 +113,14 @@ async function payFetch(url, { method = "GET", maxPay, body } = {}) {
       // CLI works perfectly from the cmd prompt.
       const { stdout } = await execFileAsync("circle", cliArgs, { timeout: 60_000, shell: true });
       const parsed = JSON.parse(stdout);
-      return parsed.data ?? parsed.response ?? parsed.body ?? parsed;
+      // Circle CLI wraps the seller's response in:
+      //   { data: { response: <actual body>, payment: <settlement meta> } }
+      // Unwrap to the actual body so bundle code sees the same shape it
+      // would get from a plain fetch (with `_paid` already attached by
+      // the seller). Falls through gracefully when other CLI shapes
+      // or non-CLI paths are encountered.
+      const data = parsed.data ?? parsed.response ?? parsed.body ?? parsed;
+      return data?.response ?? data;
     } catch (err) {
       const detail = err.stderr || err.stdout || err.message;
       // Show the full server response — 200-char cap used to hide
