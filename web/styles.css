@@ -237,6 +237,18 @@ h1.hero-title .gold { color: var(--gold); }
 }
 .ticker:hover .t-inner { animation-play-state: paused; }
 
+/* ─── ERC-8004 registered-agent badge (✓ next to wallet addresses)
+   Subtle ink mark — does NOT use gold (gold reserved for $).         */
+.erc-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px;
+  margin-left: 4px;
+  font-family: var(--mono); font-size: 9px; font-weight: 700;
+  color: var(--ink); background: var(--bg-card);
+  border: 1px solid var(--ink-faint); border-radius: 50%;
+  line-height: 1; cursor: help;
+}
+
 /* ─── Search bar ───────────────────────────────────────────────── */
 .searchbar {
   display: flex; align-items: center; gap: 10px;

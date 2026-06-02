@@ -21,6 +21,7 @@
 
 import { withCors, corsPreflight } from "../../_lib/cors.js";
 import { LIVE_ENDPOINTS } from "../../_lib/pricing.js";
+import { isRegisteredAgents, IDENTITY_REGISTRY_ADDRESS } from "../../_lib/erc8004.js";
 
 export const config = { runtime: "edge" };
 
@@ -133,14 +134,24 @@ export default async function handler(req) {
     }
 
     // 5. Top payers + x402 revenue in the scanned window.
-    const topPayers = [...senderTotals.entries()]
+    const topPayersRaw = [...senderTotals.entries()]
       .sort((a, b) => Number(b[1].paidRaw - a[1].paidRaw))
-      .slice(0, 5)
-      .map(([address, v]) => ({
-        address,
-        paid_usdc: Number(v.paidRaw) / 10 ** USDC_DECIMALS,
-        settlement_count: v.count,
-      }));
+      .slice(0, 5);
+
+    // Enrich with ERC-8004 registration status. Single eth_call per
+    // payer to IdentityRegistry.balanceOf — ~30ms each, in parallel,
+    // 5 calls max. Cached 60s via the response Cache-Control header.
+    const regMap = await isRegisteredAgents(topPayersRaw.map(([a]) => a));
+
+    const topPayers = topPayersRaw.map(([address, v]) => ({
+      address,
+      paid_usdc: Number(v.paidRaw) / 10 ** USDC_DECIMALS,
+      settlement_count: v.count,
+      // True iff this payer owns ≥1 ERC-8004 IdentityRegistry NFT on Arc.
+      // Optional / cosmetic — Arc doesn't gate x402 on this, but agents
+      // that have published an on-chain identity get a verified mark.
+      registered: regMap.get(address.toLowerCase()) || false,
+    }));
     let x402RevenueRaw = 0n;
     for (const v of senderTotals.values()) x402RevenueRaw += v.paidRaw;
     const x402RevenueUsdc = Number(x402RevenueRaw) / 10 ** USDC_DECIMALS;
@@ -168,6 +179,7 @@ export default async function handler(req) {
         chunk_size_blocks: Number(CHUNK_BLOCKS),
       },
       live_endpoints: LIVE_ENDPOINTS.length,
+      erc8004_identity_registry: IDENTITY_REGISTRY_ADDRESS,
       top_payers: topPayers,
       ts: new Date().toISOString(),
       note: scanComplete

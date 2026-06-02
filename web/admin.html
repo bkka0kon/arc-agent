@@ -163,6 +163,7 @@
 
     <div class="meta-line">
       <span id="meta-last">Last settlement: —</span>
+      <span><span class="erc-badge" style="margin-right:6px">✓</span>= ERC-8004 registered agent on Arc (optional)</span>
       <span><a href="https://arc-agent-seven.vercel.app/api/v1/admin/stats" target="_blank" rel="noreferrer noopener">raw JSON ↗</a></span>
     </div>
 
@@ -228,12 +229,15 @@
         document.getElementById('k-pay').textContent = j.unique_payers ?? '—';
         document.getElementById('k-bal').textContent = fmtUsdc(j.wallet_balance_usdc);
 
+        const ercBadge = (p) => p.registered
+          ? `<span class="erc-badge" title="ERC-8004 registered agent on Arc">✓</span>`
+          : '';
         const payersHtml = (j.top_payers || []).length === 0
           ? `<div class="row"><div class="rank">—</div><div class="addr">No settlements yet. Run the demo: <code style="font-family:var(--mono);color:var(--gold)">PAY=1 node agent/demo-pay-flow.js</code></div><div class="paid">—</div><div class="cnt">—</div></div>`
           : j.top_payers.map((p, i) => `
               <div class="row">
                 <div class="rank">${String(i + 1).padStart(2, '0')}</div>
-                <div class="addr">${p.address}</div>
+                <div class="addr">${p.address}${ercBadge(p)}</div>
                 <div class="paid">${fmtUsdc(p.paid_usdc)}</div>
                 <div class="cnt">${p.settlement_count}</div>
               </div>

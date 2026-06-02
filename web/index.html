@@ -291,9 +291,14 @@
         return;
       }
       const shortAddr = (a) => `${a.slice(0, 6)}…${a.slice(-4)}`;
+      // ERC-8004 ✓ badge — see /v1/admin/stats.top_payers[].registered.
+      // Optional UX nicety; absence does not imply the payer is illegitimate.
+      const badge = (p) => p.registered
+        ? `<span class="erc-badge" title="ERC-8004 registered agent on Arc">✓</span>`
+        : "";
       const itemHtml = (p) => `
         <span class="t-item">
-          <span class="addr">${shortAddr(p.address)}</span>
+          <span class="addr">${shortAddr(p.address)}</span>${badge(p)}
           <span class="sep">·</span>
           <span class="amt">$${p.paid_usdc.toFixed(4)}</span>
           <span class="meta">${p.settlement_count} call${p.settlement_count > 1 ? 's' : ''}</span>
