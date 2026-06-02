@@ -66,10 +66,39 @@ async function searchBrave(q, key, gate) {
 async function searchDuckDuckGo(q, gate) {
   const r = await fetch(
     `https://api.duckduckgo.com/?q=${encodeURIComponent(q)}&format=json&no_html=1&skip_disambig=1`,
-    { headers: { accept: "application/json" } },
+    { headers: { accept: "application/json", "user-agent": "arc-agentic-web-search/1.0" } },
   );
-  if (!r.ok) throw new Error(`DuckDuckGo HTTP ${r.status}`);
-  const j = await r.json();
+  // DDG sometimes returns 202 with a valid body, sometimes returns
+  // an empty body for queries it can't instant-answer. Don't trust
+  // r.json() blindly — read text, parse manually with a clear error.
+  const text = await r.text();
+  if (!text || text.trim() === "") {
+    // Empty body = no instant answer available. Don't 502 — return
+    // a real (but empty) result so the caller knows the call worked.
+    return jsonResponse({
+      query: q,
+      provider: "duckduckgo_instant",
+      result_count: 0,
+      results: [],
+      note: "DuckDuckGo had no instant answer for this query. Set BRAVE_SEARCH_KEY env for ranked web results.",
+      source: "duckduckgo",
+      ts: new Date().toISOString(),
+      _paid: gate.payment,
+    }, 200);
+  }
+  let j;
+  try {
+    j = JSON.parse(text);
+  } catch {
+    // Genuinely bad upstream response — surface the first chunk so
+    // we don't lose debug info on a real outage.
+    return jsonResponse({
+      error: "upstream_bad_json",
+      source: "duckduckgo",
+      status: r.status,
+      preview: text.slice(0, 200),
+    }, 502);
+  }
 
   const related = (j?.RelatedTopics || [])
     .filter((t) => t.Text && t.FirstURL)
