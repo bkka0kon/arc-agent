@@ -190,6 +190,53 @@ h1.hero-title .gold { color: var(--gold); }
   font-family: var(--mono); font-size: 12.5px; color: var(--ink); font-weight: 600;
 }
 
+/* ─── Live payments ticker (scrolling marquee) ─────────────────── */
+.ticker {
+  display: flex; align-items: stretch; margin-top: 12px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--bg-soft); overflow: hidden;
+}
+.ticker .t-label {
+  display: flex; align-items: center; gap: 7px;
+  flex-shrink: 0; padding: 0 16px;
+  border-right: 1px solid var(--line);
+  font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint);
+  text-transform: uppercase; letter-spacing: 0.1em;
+}
+.ticker .t-label::before {
+  content: ""; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--ink);
+  animation: t-pulse 1.6s ease-in-out infinite;
+}
+.ticker .t-track {
+  flex: 1; overflow: hidden; position: relative;
+  display: flex; align-items: center; padding: 9px 0;
+}
+.ticker .t-inner {
+  display: inline-flex; white-space: nowrap;
+  animation: t-scroll 80s linear infinite;
+}
+.ticker .t-item {
+  padding: 0 22px; font-family: var(--mono); font-size: 12px;
+  color: var(--ink-muted); display: inline-flex; align-items: center; gap: 10px;
+}
+.ticker .t-item .addr { color: var(--ink); }
+.ticker .t-item .amt  { color: var(--gold); font-weight: 700; }
+.ticker .t-item .meta { color: var(--ink-faint); font-size: 11px; }
+.ticker .t-item .sep  { color: var(--ink-faint); padding: 0 4px; }
+.ticker .t-empty {
+  padding: 0 22px; font-family: var(--mono); font-size: 12px; color: var(--ink-faint);
+}
+@keyframes t-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+@keyframes t-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.2; }
+}
+.ticker:hover .t-inner { animation-play-state: paused; }
+
 /* ─── Search bar ───────────────────────────────────────────────── */
 .searchbar {
   display: flex; align-items: center; gap: 10px;

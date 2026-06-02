@@ -72,6 +72,16 @@
         <span class="r-item"><span class="r-l">Bundles</span><span class="r-v">4 live</span></span>
       </div>
 
+      <!-- Live ticker — top payers from /v1/admin/stats, scrolling. -->
+      <div class="ticker" id="ticker">
+        <span class="t-label">payments · live</span>
+        <div class="t-track">
+          <div class="t-inner" id="ticker-inner">
+            <span class="t-empty">no settlements on chain yet — first agent payment will appear here once Gateway batches.</span>
+          </div>
+        </div>
+      </div>
+
       <!-- x402 explainer: 4-step strip below hero -->
       <div class="x402-strip">
         <div class="step"><span class="n">01</span><div><div class="t">Agent calls endpoint</div><div class="d">GET /v1/price/ETH</div></div></div>
@@ -271,6 +281,29 @@
       }
     });
 
+    function renderTicker(stats) {
+      const inner = document.getElementById('ticker-inner');
+      const payers = stats?.top_payers || [];
+      if (payers.length === 0) {
+        inner.innerHTML = `<span class="t-empty">no settlements on chain yet — first agent payment will appear here once Gateway batches.</span>`;
+        // Empty state doesn't need scrolling.
+        inner.style.animation = 'none';
+        return;
+      }
+      const shortAddr = (a) => `${a.slice(0, 6)}…${a.slice(-4)}`;
+      const itemHtml = (p) => `
+        <span class="t-item">
+          <span class="addr">${shortAddr(p.address)}</span>
+          <span class="sep">·</span>
+          <span class="amt">$${p.paid_usdc.toFixed(4)}</span>
+          <span class="meta">${p.settlement_count} call${p.settlement_count > 1 ? 's' : ''}</span>
+        </span>`;
+      // Render TWICE so the keyframe translateX(-50%) loops seamlessly.
+      const allItems = payers.concat(payers).map(itemHtml).join('');
+      inner.innerHTML = allItems;
+      inner.style.animation = '';
+    }
+
     loadAdminStats().then(stats => {
       if (!stats) {
         ['st-rev', 'st-sett', 'st-payers'].forEach(id => {
@@ -281,14 +314,19 @@
       document.getElementById('st-rev').textContent = fmtUsdc(stats.x402_revenue_usdc);
       document.getElementById('st-sett').textContent = stats.settlement_count ?? '—';
       document.getElementById('st-payers').textContent = stats.unique_payers ?? '—';
-      // Sub-line under x402 revenue: rotate based on activity state.
       const subEl = document.getElementById('st-rev-sub');
       if ((stats.settlement_count ?? 0) === 0) {
         subEl.textContent = `wallet balance: ${fmtUsdc(stats.wallet_balance_usdc)} · awaiting first settlement`;
       } else {
         subEl.textContent = `last settlement ${stats.last_settlement ? new Date(stats.last_settlement).toLocaleString() : '—'}`;
       }
+      renderTicker(stats);
     });
+
+    // Refresh stats + ticker every 60 s without reload.
+    setInterval(() => {
+      loadAdminStats().then(stats => stats && renderTicker(stats));
+    }, 60_000);
 
     loadHealthProbe().then(probe => {
       if (!probe) return;
