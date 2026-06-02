@@ -1,10 +1,13 @@
 {
-  "name": "@arc-agent/sdk",
+  "name": "@bkka0kon/arc-agent-sdk",
   "version": "0.1.0",
   "description": "TypeScript SDK for the Arc Agent x402 marketplace on Arc Testnet. 11 typed methods, transparent USDC payment via Circle CLI or a custom signer.",
   "license": "MIT",
   "author": "bkka0kon",
-  "repository": "https://github.com/bkka0kon/arc-agent",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bkka0kon/arc-agent.git"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

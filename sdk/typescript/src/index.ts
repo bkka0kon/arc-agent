@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-//  @arc-agent/sdk — typed client for the Arc Agent x402 marketplace
+//  @bkka0kon/arc-agent-sdk — typed client for the Arc Agent x402 marketplace
 //
 //  One class. Eleven methods. Each method = one live endpoint.
 //  Pay flow is transparent: call a method, get parsed JSON back.
@@ -19,7 +19,7 @@
 //                             signer, custodial wallet, etc.).
 //
 //  ── Usage ──
-//    import { ArcAgent } from "@arc-agent/sdk";
+//    import { ArcAgent } from "@bkka0kon/arc-agent-sdk";
 //
 //    const arc = new ArcAgent({
 //      signer: "circle-cli",

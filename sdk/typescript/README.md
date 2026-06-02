@@ -1,4 +1,4 @@
-# `@arc-agent/sdk`
+# `@bkka0kon/arc-agent-sdk`
 
 TypeScript SDK for the Arc Agent x402 marketplace on Arc Testnet.
 **11 typed methods.** Transparent USDC payment via Circle CLI or your own signer.
@@ -6,13 +6,13 @@ TypeScript SDK for the Arc Agent x402 marketplace on Arc Testnet.
 ## Install
 
 ```bash
-npm i @arc-agent/sdk
+npm i @bkka0kon/arc-agent-sdk
 ```
 
 ## Quick start
 
 ```ts
-import { ArcAgent } from "@arc-agent/sdk";
+import { ArcAgent } from "@bkka0kon/arc-agent-sdk";
 
 const arc = new ArcAgent({
   // Three signer modes — see below.

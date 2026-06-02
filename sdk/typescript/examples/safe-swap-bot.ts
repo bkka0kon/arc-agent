@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-//  safe-swap-bot — reference agent built on @arc-agent/sdk
+//  safe-swap-bot — reference agent built on @bkka0kon/arc-agent-sdk
 //
 //  Demonstrates a real trading-agent decision cycle composed of the
 //  3 Phase-8 services:
