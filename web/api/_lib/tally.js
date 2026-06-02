@@ -25,8 +25,16 @@
 //   Works against any Upstash-compatible REST endpoint, not just
 //   Vercel's — useful for self-hosted preview environments.
 
-const KV_URL = process.env.KV_REST_API_URL || "";
-const KV_TOKEN = process.env.KV_REST_API_TOKEN || "";
+// Support both Vercel KV env vars (paid, $8/mo) AND Upstash Redis
+// direct env vars (free tier: 10k commands/day, 256MB). Both speak
+// the same Upstash REST protocol — just different env var names.
+// Set either pair and tally starts working on next deploy.
+const KV_URL = process.env.KV_REST_API_URL
+            || process.env.UPSTASH_REDIS_REST_URL
+            || "";
+const KV_TOKEN = process.env.KV_REST_API_TOKEN
+              || process.env.UPSTASH_REDIS_REST_TOKEN
+              || "";
 
 const enabled = !!(KV_URL && KV_TOKEN);
 
